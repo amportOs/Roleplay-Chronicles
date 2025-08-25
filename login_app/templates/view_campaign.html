@@ -1,0 +1,675 @@
+{% extends "base.html" %}
+
+{% block title %}{{ campaign.name }} - Kampagne{% endblock %}
+
+{% block content %}
+<style>
+    /* NPC Card Styles */
+    .npc-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 16px;
+        justify-content: start;
+    }
+    
+    .npc-item {
+        width: 100%;
+    }
+    
+    .npc-card {
+        overflow: hidden;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .npc-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .npc-portrait {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 3 / 4;
+        overflow: hidden;
+        border-radius: 6px;
+        background: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .npc-img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+        background-color: #f8f9fa;
+    }
+    
+    .npc-name-plaque {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        padding: 8px 12px;
+        text-align: center;
+        color: #fff;
+        font-weight: 700;
+        letter-spacing: .5px;
+        text-transform: uppercase;
+        text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+        background: linear-gradient(180deg, #8c2f1b 0%, #6e2415 100%);
+        border-top: 2px solid #d9a441;
+        border-bottom: 2px solid #d9a441;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.2);
+        z-index: 2;
+    }
+    
+    @media (min-width: 576px) { 
+        .npc-grid { 
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+        } 
+    }
+    
+    @media (min-width: 992px) { 
+        .npc-grid { 
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
+        } 
+    }
+</style>
+<div class="container" style="max-width: 100%; padding: 15px 0;">
+    <div style="padding: 0 15px;">
+        <!-- Back Button -->
+        <a href="{{ url_for('home') }}" style="display: inline-block; margin-bottom: 15px; color: var(--primary-color); text-decoration: none;">
+            <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
+        </a>
+
+        <!-- Campaign Header -->
+        <div class="card" style="border-radius: 10px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            {% if campaign.image and campaign.image != 'default_campaign.jpg' %}
+            <div style="height: 200px; background-size: contain; background-position: center; background-repeat: no-repeat; background-color: #f8f9fa; background-image: url('{{ url_for('static', filename='campaign_images/' + campaign.image) }}');">
+            </div>
+            {% else %}
+            <div style="height: 200px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 4em; color: #999;">
+                <i class="fas fa-dice-d20"></i>
+            </div>
+            {% endif %}
+            
+            <div style="padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                    <div>
+                        <h1 style="margin: 0 0 5px 0; color: var(--primary-color);">{{ campaign.name }}</h1>
+                        <div style="color: #666; margin-bottom: 10px; display: flex; align-items: center; gap: 15px;">
+                            <div style="display: flex; align-items: center;">
+                                <i class="fas fa-dice" style="margin-right: 5px;"></i> {{ campaign.system }}
+                            </div>
+                            <div style="display: flex; align-items: center;">
+                                <i class="fas fa-crown" style="color: #ffc107; margin-right: 5px;"></i>
+                                <span>{{ campaign.dm.full_name or campaign.dm.username }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% if current_user.id == campaign.dm_id %}
+                    <div>
+                        <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.9em;">
+                            <i class="fas fa-edit"></i> Bearbeiten
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% if campaign.description %}
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <h3 style="margin-top: 0; margin-bottom: 10px; color: #555;">Beschreibung</h3>
+                    <p style="margin: 0; white-space: pre-line;">{{ campaign.description }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+
+        <!-- Campaign Tabs -->
+        <div style="margin-bottom: 20px;">
+            <div style="display: flex; border-bottom: 1px solid #ddd; margin-bottom: 15px;">
+                <button class="tab-button active" style="padding: 10px 15px; border: none; background: none; border-bottom: 2px solid var(--primary-color); color: var(--primary-color); font-weight: 500; cursor: pointer;">
+                    Übersicht
+                </button>
+                <button class="tab-button" style="padding: 10px 15px; border: none; background: none; color: #666; cursor: pointer;">
+                    Termine
+                </button>
+                <button class="tab-button" style="padding: 10px 15px; border: none; background: none; color: #666; cursor: pointer;">
+                    Charaktere
+                </button>
+                <button class="tab-button" style="padding: 10px 15px; border: none; background: none; color: #666; cursor: pointer;">
+                    DM Info
+                </button>
+            </div>
+            
+            <!-- Tab Content -->
+            <div>
+                <!-- Übersicht Tab Content -->
+                <div class="tab-content" style="display: block;">
+                    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <h3 style="margin-top: 0; margin-bottom: 15px; color: #555;">Kampagnen-Informationen</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div>
+                                <div style="font-size: 0.9em; color: #888; margin-bottom: 5px;">Erstellt am</div>
+                                <div>{{ campaign.created_at.strftime('%d.%m.%Y') }}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.9em; color: #888; margin-bottom: 5px;">Spielleiter</div>
+                                <div style="display: flex; align-items: center;">
+                                    <div style="width: 24px; height: 24px; border-radius: 50%; background-color: #f0f0f0; margin-right: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                                        {% if campaign.dm.profile_pic and campaign.dm.profile_pic != 'default.jpg' %}
+                                            <img src="{{ url_for('static', filename='profile_pics/' + campaign.dm.profile_pic) }}" alt="{{ campaign.dm.username }}" style="width: 100%; height: 100%; object-fit: cover;">
+                                        {% else %}
+                                            <i class="fas fa-user" style="color: #999; font-size: 0.7em;"></i>
+                                        {% endif %}
+                                    </div>
+                                    <span>{{ campaign.dm.full_name or campaign.dm.username }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Spielerliste -->
+                        <div style="margin-top: 25px;">
+                            <h4 style="margin-top: 0; margin-bottom: 15px; color: #555;">
+                                <i class="fas fa-users" style="margin-right: 8px;"></i>Spieler ({{ campaign.players|length }})
+                            </h4>
+                            {% if campaign.players %}
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">
+                                    {% for player in campaign.players %}
+                                    <div style="display: flex; align-items: center; padding: 10px; background: #f9f9f9; border-radius: 8px;">
+                                        <div style="width: 36px; height: 36px; border-radius: 50%; background-color: #f0f0f0; margin-right: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                            {% if player.profile_pic and player.profile_pic != 'default.jpg' %}
+                                                <img src="{{ url_for('static', filename='profile_pics/' + player.profile_pic) }}" alt="{{ player.username }}" style="width: 100%; height: 100%; object-fit: cover;">
+                                            {% else %}
+                                                <i class="fas fa-user" style="color: #999;"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div style="overflow: hidden;">
+                                            {% set character = campaign.get_character_for_user(player.id) %}
+                                            {% if character and character.character_name %}
+                                                <div style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;">
+                                                    {{ character.character_name }}
+                                                </div>
+                                            {% endif %}
+                                            <div style="font-size: 0.85em; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                {{ player.full_name or player.username }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div style="text-align: center; padding: 20px; background: #f9f9f9; border-radius: 8px; color: #888;">
+                                    <i class="fas fa-users-slash" style="font-size: 1.5em; opacity: 0.5; margin-bottom: 10px; display: block;"></i>
+                                    <p style="margin: 0;">Noch keine Spieler in dieser Kampagne.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Nächste Sitzung (Kompakt) -->
+                        {% if sessions and sessions|length > 0 %}
+                        {% set next_session = sessions|sort(attribute='scheduled_at')|first %}
+                        <div style="margin-top: 20px;">
+                            <h4 style="margin-top: 0; margin-bottom: 10px; color: #555;">Nächste Sitzung</h4>
+                            <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; color: #444;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <i class="far fa-calendar-alt" style="font-size: 1.5em; color: var(--primary-color);"></i>
+                                        <div>
+                                            <div style="font-weight: 600; font-size: 1.1em;">{{ next_session.title or 'Geplante Sitzung' }}</div>
+                                            <div style="font-size: 0.95em; color: #444; margin-top: 2px;">
+                                                <i class="far fa-clock"></i> {{ next_session.scheduled_at.strftime('%d.%m.%Y %H:%M') }}
+                                                {% if next_session.location %}
+                                                    <span style="margin: 0 5px;">•</span>
+                                                    <i class="fas fa-map-marker-alt"></i> {{ next_session.location }}
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <a href="#" onclick="document.querySelector('.tab-button:nth-child(2)').click(); return false;" class="btn btn-sm btn-outline-primary">
+                                        Alle Termine anzeigen
+                                    </a>
+                                </div>
+                                
+                                {% set my_resp = resp_map.get(next_session.id) %}
+                                {% set yes_list = [] %}
+                                {% set maybe_list = [] %}
+                                {% set no_list = [] %}
+                                {% for r in next_session.responses %}
+                                    {% if r.response == 'yes' %}
+                                        {% set _ = yes_list.append(r.user.full_name or r.user.username) %}
+                                    {% elif r.response == 'maybe' %}
+                                        {% set _ = maybe_list.append(r.user.full_name or r.user.username) %}
+                                    {% elif r.response == 'no' %}
+                                        {% set _ = no_list.append(r.user.full_name or r.user.username) %}
+                                    {% endif %}
+                                {% endfor %}
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0;">
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin-top: 8px;">
+                                        <div style="border: 1px solid #e6f4ea; background: #f6fff9; border-radius: 6px; padding: 8px 12px;">
+                                            <div style="font-weight: 600; color: #2e7d32; margin-bottom: 4px;">Zusagen ({{ yes_list|length }})</div>
+                                            <div style="font-size: 0.9em; color: #2e7d32;">{{ yes_list|join(', ') if yes_list else '—' }}</div>
+                                        </div>
+                                        <div style="border: 1px solid #fff3e0; background: #fffaf2; border-radius: 6px; padding: 8px 12px;">
+                                            <div style="font-weight: 600; color: #ff8f00; margin-bottom: 4px;">Vielleicht ({{ maybe_list|length }})</div>
+                                            <div style="font-size: 0.9em; color: #ff8f00;">{{ maybe_list|join(', ') if maybe_list else '—' }}</div>
+                                        </div>
+                                        <div style="border: 1px solid #ffebee; background: #fff5f5; border-radius: 6px; padding: 8px 12px;">
+                                            <div style="font-weight: 600; color: #c62828; margin-bottom: 4px;">Absagen ({{ no_list|length }})</div>
+                                            <div style="font-size: 0.9em; color: #c62828;">{{ no_list|join(', ') if no_list else '—' }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Termine Tab Content -->
+                <div class="tab-content" style="display: none;">
+                    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <!-- Nächste Sitzung Section -->
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="margin-top: 0; margin-bottom: 15px; color: #555; display: flex; align-items: center; gap: 10px;">
+                                <i class="far fa-calendar-alt"></i> Nächste Sitzung
+                            </h3>
+                            <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; color: #444;">
+                                {% if sessions %}
+                                    <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                                        {% for sess in sessions %}
+                                        <div id="session-{{ sess.id }}" style="background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 12px;">
+                                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                                                <i class="far fa-calendar-alt" style="font-size: 1.2em; color: var(--primary-color);"></i>
+                                                <div>
+                                                    <div style="font-weight: 600;">{{ sess.title or 'Geplante Sitzung' }}</div>
+                                                    <div style="font-size: 0.9em; color: #666;">
+                                                        {{ sess.scheduled_at.strftime('%d.%m.%Y %H:%M') }}
+                                                        {% if sess.location %} • {{ sess.location }}{% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% if is_dm %}
+                                            <div style="display: flex; gap: 10px; margin-bottom: 6px;">
+                                                <a class="btn btn-sm btn-secondary" href="{{ url_for('edit_session', campaign_id=campaign.id, session_id=sess.id) }}">
+                                                    <i class="fas fa-edit"></i> Bearbeiten
+                                                </a>
+                                                <form method="POST" action="{{ url_for('delete_session', campaign_id=campaign.id, session_id=sess.id) }}" onsubmit="return confirm('Sitzung wirklich löschen?');">
+                                                    <button type="submit" class="btn btn-sm btn-danger">
+                                                        <i class="fas fa-trash"></i> Löschen
+                                                    </button>
+                                                </form>
+                                            </div>
+                                            {% endif %}
+                                            <!-- RSVP Controls -->
+                                            <div style="display:flex; flex-wrap: wrap; align-items:center; gap:8px; margin: 8px 0;">
+                                                {% set my_resp = resp_map.get(sess.id) %}
+                                                <form class="js-rsvp-form" data-session-id="{{ sess.id }}" method="POST" action="{{ url_for('rsvp_session', campaign_id=campaign.id, session_id=sess.id) }}">
+                                                    <input type="hidden" name="response" value="yes">
+                                                    <button type="submit" data-response="yes" class="rsvp-btn btn btn-sm {{ 'btn-success' if my_resp == 'yes' else 'btn-outline-success' }}">Ja</button>
+                                                </form>
+                                                <form class="js-rsvp-form" data-session-id="{{ sess.id }}" method="POST" action="{{ url_for('rsvp_session', campaign_id=campaign.id, session_id=sess.id) }}">
+                                                    <input type="hidden" name="response" value="maybe">
+                                                    <button type="submit" data-response="maybe" class="rsvp-btn btn btn-sm {{ 'btn-warning' if my_resp == 'maybe' else 'btn-outline-warning' }}">Vielleicht</button>
+                                                </form>
+                                                <form class="js-rsvp-form" data-session-id="{{ sess.id }}" method="POST" action="{{ url_for('rsvp_session', campaign_id=campaign.id, session_id=sess.id) }}">
+                                                    <input type="hidden" name="response" value="no">
+                                                    <button type="submit" data-response="no" class="rsvp-btn btn btn-sm {{ 'btn-danger' if my_resp == 'no' else 'btn-outline-danger' }}">Nein</button>
+                                                </form>
+                                                <span id="session-{{ sess.id }}-mychoice" style="font-size:0.85em; color:#666;" {% if not my_resp %}hidden{% endif %}>Deine Auswahl: {{ 'Ja' if my_resp=='yes' else ('Vielleicht' if my_resp=='maybe' else 'Nein') }}</span>
+                                            </div>
+
+                                            <!-- RSVP Summary -->
+                                            {% set yes_list = [] %}
+                                            {% set maybe_list = [] %}
+                                            {% set no_list = [] %}
+                                            {% for r in sess.responses %}
+                                                {% if r.response == 'yes' %}
+                                                    {% set _ = yes_list.append(r.user.full_name or r.user.username) %}
+                                                {% elif r.response == 'maybe' %}
+                                                    {% set _ = maybe_list.append(r.user.full_name or r.user.username) %}
+                                                {% elif r.response == 'no' %}
+                                                    {% set _ = no_list.append(r.user.full_name or r.user.username) %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:8px; margin-top:8px;">
+                                                <div style="border:1px solid #e6f4ea; background:#f6fff9; border-radius:6px; padding:8px;">
+                                                    <div style="font-weight:600; color:#2e7d32; margin-bottom:4px;">Ja (<span id="session-{{ sess.id }}-yes-count">{{ yes_list|length }}</span>)</div>
+                                                    <div id="session-{{ sess.id }}-yes" style="font-size:0.9em; color:#2e7d32;">{{ yes_list|join(', ') if yes_list else '—' }}</div>
+                                                </div>
+                                                <div style="border:1px solid #fff7e0; background:#fffaf0; border-radius:6px; padding:8px;">
+                                                    <div style="font-weight:600; color:#b26a00; margin-bottom:4px;">Vielleicht (<span id="session-{{ sess.id }}-maybe-count">{{ maybe_list|length }}</span>)</div>
+                                                    <div id="session-{{ sess.id }}-maybe" style="font-size:0.9em; color:#b26a00;">{{ maybe_list|join(', ') if maybe_list else '—' }}</div>
+                                                </div>
+                                                <div style="border:1px solid #fdecea; background:#fff5f5; border-radius:6px; padding:8px;">
+                                                    <div style="font-weight:600; color:#c62828; margin-bottom:4px;">Nein (<span id="session-{{ sess.id }}-no-count">{{ no_list|length }}</span>)</div>
+                                                    <div id="session-{{ sess.id }}-no" style="font-size:0.9em; color:#c62828;">{{ no_list|join(', ') if no_list else '—' }}</div>
+                                                </div>
+                                            </div>
+                                            {% if sess.notes %}
+                                            <div style="background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 8px; font-size: 0.95em; color: #555; white-space: pre-line;">{{ sess.notes }}</div>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div style="text-align: center; color: #666;">
+                                        <i class="far fa-calendar-alt" style="font-size: 1.5em; margin-bottom: 10px; display: block;"></i>
+                                        <p style="margin: 0;">Keine Sitzungen vorhanden</p>
+                                    </div>
+                                {% endif %}
+                                {% if is_dm %}
+                                <div style="display:flex; gap:8px; justify-content:center; margin-top: 10px; flex-wrap:wrap;">
+                                    <a class="btn btn-primary" href="{{ url_for('plan_session', campaign_id=campaign.id) }}" style="padding: 5px 15px; font-size: 0.9em;">
+                                        <i class="fas fa-plus"></i> Sitzung planen
+                                    </a>
+                                    <a class="btn btn-secondary" href="{{ url_for('new_poll', campaign_id=campaign.id) }}" style="padding: 5px 15px; font-size: 0.9em;">
+                                        <i class="fas fa-calendar-plus"></i> Termin-Umfrage erstellen
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Offene Termin-Umfragen Section -->
+                        {% if polls %}
+                        <div style="margin-top: 20px;">
+                            <h3 style="margin-top: 0; margin-bottom: 15px; color: #555; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-poll"></i> Offene Termin-Umfragen
+                            </h3>
+                            <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                                {% for poll in polls %}
+                                <div id="poll-{{ poll.id }}" style="background:#fff; border:1px solid #eee; border-radius:8px; padding:12px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                        <div>
+                                            <div style="font-weight:600;">{{ poll.title or 'Termin-Umfrage' }}</div>
+                                            {% if poll.notes %}<div style="font-size:0.9em; color:#666; white-space: pre-line;">{{ poll.notes }}</div>{% endif %}
+                                            <div style="font-size:0.85em; color:#999;">Erstellt am {{ poll.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
+                                        </div>
+                                    </div>
+
+                                    {% if poll.options %}
+                                    <div style="display:grid; grid-template-columns:1fr; gap:8px;">
+                                        {% for opt in poll.options %}
+                                        {% set yes = [] %}
+                                        {% set maybe = [] %}
+                                        {% set no = [] %}
+                                        {% for v in opt.votes %}
+                                            {% if v.response == 'yes' %}
+                                                {% set _ = yes.append(v.user.full_name or v.user.username) %}
+                                            {% elif v.response == 'maybe' %}
+                                                {% set _ = maybe.append(v.user.full_name or v.user.username) %}
+                                            {% elif v.response == 'no' %}
+                                                {% set _ = no.append(v.user.full_name or v.user.username) %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        <div style="border:1px solid #f0f0f0; border-radius:8px; padding:10px;">
+                                            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                                                <div>
+                                                    <div style="font-weight:600;">{{ opt.scheduled_at.strftime('%d.%m.%Y %H:%M') }}{% if opt.location %} • {{ opt.location }}{% endif %}</div>
+                                                    {% if opt.notes %}<div style="font-size:0.9em; color:#666;">{{ opt.notes }}</div>{% endif %}
+                                                </div>
+                                                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                                    <form class="js-poll-vote" data-poll-id="{{ poll.id }}" data-option-id="{{ opt.id }}" method="POST" action="{{ url_for('vote_poll_option', campaign_id=campaign.id, poll_id=poll.id) }}">
+                                                        <input type="hidden" name="option_id" value="{{ opt.id }}" />
+                                                        <input type="hidden" name="response" value="yes" />
+                                                        <button type="submit" data-response="yes" class="btn btn-sm btn-outline-success">Ja</button>
+                                                    </form>
+                                                    <form class="js-poll-vote" data-poll-id="{{ poll.id }}" data-option-id="{{ opt.id }}" method="POST" action="{{ url_for('vote_poll_option', campaign_id=campaign.id, poll_id=poll.id) }}">
+                                                        <input type="hidden" name="option_id" value="{{ opt.id }}" />
+                                                        <input type="hidden" name="response" value="maybe" />
+                                                        <button type="submit" data-response="maybe" class="btn btn-sm btn-outline-warning">Vielleicht</button>
+                                                    </form>
+                                                    <form class="js-poll-vote" data-poll-id="{{ poll.id }}" data-option-id="{{ opt.id }}" method="POST" action="{{ url_for('vote_poll_option', campaign_id=campaign.id, poll_id=poll.id) }}">
+                                                        <input type="hidden" name="option_id" value="{{ opt.id }}" />
+                                                        <input type="hidden" name="response" value="no" />
+                                                        <button type="submit" data-response="no" class="btn btn-sm btn-outline-danger">Nein</button>
+                                                    </form>
+                                                    {% if is_dm %}
+                                                    <form method="POST" action="{{ url_for('finalize_poll', campaign_id=campaign.id, poll_id=poll.id) }}" onsubmit="return confirm('Diese Option wählen und Umfrage schließen?');">
+                                                        <input type="hidden" name="option_id" value="{{ opt.id }}" />
+                                                        <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-check"></i> Übernehmen</button>
+                                                    </form>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:6px; margin-top:8px;">
+                                                <div style="border:1px solid #e6f4ea; background:#f6fff9; border-radius:6px; padding:6px;">
+                                                    <div style="font-weight:600; color:#2e7d32;">Ja (<span id="poll-{{ poll.id }}-opt-{{ opt.id }}-yes-count">{{ yes|length }}</span>)</div>
+                                                    <div id="poll-{{ poll.id }}-opt-{{ opt.id }}-yes" style="font-size:0.9em; color:#2e7d32;">{{ yes|join(', ') if yes else '—' }}</div>
+                                                </div>
+                                                <div style="border:1px solid #fff7e0; background:#fffaf0; border-radius:6px; padding:6px;">
+                                                    <div style="font-weight:600; color:#b26a00;">Vielleicht (<span id="poll-{{ poll.id }}-opt-{{ opt.id }}-maybe-count">{{ maybe|length }}</span>)</div>
+                                                    <div id="poll-{{ poll.id }}-opt-{{ opt.id }}-maybe" style="font-size:0.9em; color:#b26a00;">{{ maybe|join(', ') if maybe else '—' }}</div>
+                                                </div>
+                                                <div style="border:1px solid #fdecea; background:#fff5f5; border-radius:6px; padding:6px;">
+                                                    <div style="font-weight:600; color:#c62828;">Nein (<span id="poll-{{ poll.id }}-opt-{{ opt.id }}-no-count">{{ no|length }}</span>)</div>
+                                                    <div id="poll-{{ poll.id }}-opt-{{ opt.id }}-no" style="font-size:0.9em; color:#c62828;">{{ no|join(', ') if no else '—' }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% else %}
+                                    <div style="color:#666;">Keine Optionen vorhanden.</div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Charaktere Tab Content -->
+                <div class="tab-content" style="display: none;">
+                    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="margin: 0; color: #555;">Spielercharaktere</h3>
+                        </div>
+                        
+                        {% if characters %}
+                            <div class="npc-grid" style="margin-top: 20px;">
+                                {% for character in characters %}
+                                    {% set player = character.user %}
+                                    <div class="npc-item">
+                                        <div class="card h-100 d-flex flex-column npc-card">
+                                            <a href="#" class="text-decoration-none character-details" 
+                                               data-name="{{ character.character_name }}"
+                                               data-race="{{ character.race }}"
+                                               data-class="{{ character.class }}"
+                                               data-level="{{ character.level }}"
+                                               data-description="{{ character.description }}"
+                                               data-image="{{ url_for('static', filename='profile_pics/' + player.profile_pic) if player.profile_pic and player.profile_pic != 'default.jpg' else '' }}">
+                                                <div class="npc-portrait">
+                                                    {% if player.profile_pic and player.profile_pic != 'default.jpg' %}
+                                                        <img src="{{ url_for('static', filename='profile_pics/' + player.profile_pic) }}" alt="{{ character.character_name }}" class="npc-img">
+                                                    {% else %}
+                                                        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#999; font-size:4rem;">
+                                                            <i class="fas fa-user"></i>
+                                                        </div>
+                                                    {% endif %}
+                                                    <div class="npc-name-plaque">{{ character.character_name }}</div>
+                                                </div>
+                                            </a>
+                                            <div class="card-body d-flex flex-column" style="padding: 15px;">
+                                                <div class="mt-auto">
+                                                    <div style="font-size: 0.9em; color: #6c757d; margin-bottom: 10px;">
+                                                        {% if character.race %}
+                                                            <div style="margin-bottom: 5px;">
+                                                                <i class="fas fa-user-tag" style="width: 20px; text-align: center; margin-right: 5px;"></i>
+                                                                {{ character.race }}
+                                                            </div>
+                                                        {% endif %}
+                                                        {% if character.class %}
+                                                            <div>
+                                                                <i class="fas fa-hat-wizard" style="width: 20px; text-align: center; margin-right: 5px;"></i>
+                                                                {{ character.class }}
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                    {% if character.description %}
+                                                        <div style="font-size: 0.85em; color: #555; margin-top: 10px; max-height: 100px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; line-clamp: 3;">
+                                                            {{ character.description|truncate(120) }}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div style="text-align: center; color: #6c757d; padding: 40px 0;">
+                                <i class="fas fa-users-slash" style="font-size: 2em; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
+                                <p>Keine Spielercharaktere vorhanden</p>
+                                <p style="font-size: 0.9em; margin-top: 10px;">Spieler können ihre Charaktere in ihren Einstellungen verwalten.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- DM Info Tab Content -->
+                <div class="tab-content" style="display: none;">
+                    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <h3 style="margin-top: 0; margin-bottom: 20px; color: #555;">DM Informationen</h3>
+                        <div style="text-align: center; color: #888; padding: 40px 0;">
+                            <i class="fas fa-info-circle" style="font-size: 2em; margin-bottom: 10px; display: block;"></i>
+                            <p>Keine DM-Informationen vorhanden</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Bottom Navigation -->
+    {% with is_dm=is_dm %}
+        {% include 'campaign_bottom_nav.html' %}
+    {% endwith %}
+</div>
+
+<!-- Character Details Modal -->
+<div class="modal fade" id="characterModal" tabindex="-1" aria-labelledby="characterModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="characterModalLabel">Charakterdetails</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <div class="character-modal-portrait mb-3">
+                            <img id="modalCharacterImage" src="" alt="Character" class="img-fluid rounded" style="max-height: 300px; width: 100%; object-fit: contain;">
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <h3 id="modalCharacterName" class="mb-3"></h3>
+                        <div class="mb-3">
+                            <p class="mb-2">
+                                <strong>Klasse:</strong> <span id="modalCharacterClass" class="ms-2">-</span>
+                                <span class="mx-2">•</span>
+                                <strong>Stufe:</strong> <span id="modalCharacterLevel" class="ms-2">-</span>
+                            </p>
+                            <div class="col-12">
+                                <p class="mb-2"><strong>Volk/Rasse:</strong> <span id="modalCharacterRace" class="ms-2">-</span></p>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <h5>Beschreibung</h5>
+                            <div id="modalCharacterDescription" class="bg-light p-3 rounded" style="min-height: 150px; max-height: 300px; overflow-y: auto;">
+                                -
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Tab functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabButtons.forEach((button, index) => {
+        button.addEventListener('click', () => {
+            // Remove active class from all buttons and contents
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.style.display = 'none');
+            
+            // Add active class to clicked button and show corresponding content
+            button.classList.add('active');
+            tabContents[index].style.display = 'block';
+        });
+    });
+});
+</script>
+
+<script>
+// Character Details Modal
+document.addEventListener('DOMContentLoaded', function() {
+    const characterLinks = document.querySelectorAll('.character-details');
+    const modal = new bootstrap.Modal(document.getElementById('characterModal'));
+    
+    characterLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Get character data from data attributes
+            const name = this.getAttribute('data-name');
+            const race = this.getAttribute('data-race') || 'Nicht angegeben';
+            const charClass = this.getAttribute('data-class') || 'Nicht angegeben';
+            const level = this.getAttribute('data-level') || '1';
+            const description = this.getAttribute('data-description') || 'Keine Beschreibung vorhanden.';
+            const imageUrl = this.getAttribute('data-image');
+            
+            // Set modal content
+            document.getElementById('modalCharacterName').textContent = name;
+            document.getElementById('modalCharacterRace').textContent = race;
+            document.getElementById('modalCharacterClass').textContent = charClass;
+            document.getElementById('modalCharacterLevel').textContent = level;
+            document.getElementById('modalCharacterDescription').textContent = description;
+            
+            const imgElement = document.getElementById('modalCharacterImage');
+            if (imageUrl) {
+                imgElement.src = imageUrl;
+                imgElement.style.display = 'block';
+            } else {
+                // Show default user icon if no image
+                imgElement.outerHTML = '<i class="fas fa-user" style="font-size: 10rem; color: #6c757d; display: flex; align-items: center; justify-content: center; height: 100%;"></i>';
+            }
+            
+            // Show the modal
+            modal.show();
+        });
+    });
+});
+</script>
+
+<style>
+/* Responsive Design Anpassungen */
+@media (min-width: 768px) {
+    .container {
+        max-width: 800px !important;
+        margin: 0 auto;
+        padding-bottom: 80px !important; /* Platz für die untere Navigation */
+    }
+    
+    .kampagne-card {
+        transition: transform 0.2s;
+    }
+    
+    .kampagne-card:hover {
+        transform: translateY(-5px);
+    }
+}
+</style>
+{% endblock %}

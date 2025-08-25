@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Quests - {{ campaign.name }}{% endblock %}
+{% block content %}
+<div class="container mt-3">
+  <style>
+    /* Tag style pills (match NPC tags) */
+    .tag-pill {
+      display: inline-block;
+      padding: 1px 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: #fff;
+      background: linear-gradient(180deg, #8c2f1b 0%, #6e2415 100%);
+      border: 1.5px solid #d9a441;
+      border-radius: 2px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.2);
+      margin-right: .4rem;
+      user-select: none;
+      white-space: nowrap;
+    }
+  </style>
+  <a href="{{ url_for('home') }}" class="text-decoration-none mb-3 d-inline-block"><i class="fas fa-arrow-left"></i> Zurück zur Übersicht</a>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="m-0">Quests</h2>
+    <a class="btn btn-primary" href="{{ url_for('new_quest', campaign_id=campaign.id) }}">
+      <i class="fas fa-plus"></i> Neue Quest
+    </a>
+  </div>
+
+  <form class="row g-2 mb-3" method="get" action="{{ url_for('quests', campaign_id=campaign.id) }}">
+    <div class="col-12 col-md-6">
+      <input type="text" name="q" class="form-control" placeholder="Titel, Beschreibung oder Tags suchen" value="{{ q }}">
+    </div>
+    <div class="col-6 col-md-3">
+      <select name="status" class="form-select" onchange="this.form.submit()">
+        <option value="">Status: alle</option>
+        <option value="open" {{ 'selected' if status=='open' else '' }}>Offen</option>
+        <option value="done" {{ 'selected' if status=='done' else '' }}>Erledigt</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-2 d-flex align-items-center">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="main" id="mainOnly" value="1" {{ 'checked' if main_only else '' }} onchange="this.form.submit()">
+        <label class="form-check-label" for="mainOnly">Hauptquests</label>
+      </div>
+    </div>
+    <div class="col-12 col-md-1">
+      <button class="btn btn-outline-secondary w-100" type="submit"><i class="fas fa-search"></i></button>
+    </div>
+  </form>
+
+  {% if quests %}
+  <div class="list-group">
+    {% for quest in quests %}
+      <a class="list-group-item list-group-item-action" href="{{ url_for('view_quest', campaign_id=campaign.id, quest_id=quest.id) }}">
+        <div class="d-flex w-100 justify-content-between">
+          <h5 class="mb-1" style="display:flex;align-items:center;gap:8px;">
+            {% if quest.is_main %}<span class="badge bg-warning text-dark">Hauptquest</span>{% endif %}
+            {{ quest.title }}
+          </h5>
+          <small class="text-muted">{{ quest.created_at.strftime('%d.%m.%Y') }}</small>
+        </div>
+        {% if quest.tags %}
+          <div class="mb-1">
+            {% for t in quest.tags.split(',') %}
+              {% set tag = t.strip() %}
+              {% if tag %}<span class="tag-pill">{{ tag }}</span>{% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+        <small class="text-muted">
+          Status: {{ 'Offen' if quest.status=='open' else 'Erledigt' }} ·
+          Prio: {{ quest.priority|capitalize }}
+        </small>
+      </a>
+    {% endfor %}
+  </div>
+  {% else %}
+    <div class="alert alert-info">Noch keine Quests vorhanden.</div>
+  {% endif %}
+</div>
+{% include 'campaign_bottom_nav.html' %}
+{% endblock %}

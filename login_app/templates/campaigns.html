@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Meine Kampagnen{% endblock %}
+
+{% block content %}
+<!-- Campaign Creation Modal -->
+<div id="campaignModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+    <div class="modal-content" style="background-color: #fefefe; margin: 10% auto; padding: 20px; border-radius: 10px; width: 90%; max-width: 500px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+            <h2 style="margin: 0; color: var(--primary-color);">Neue Kampagne erstellen</h2>
+            <span class="close" style="font-size: 28px; cursor: pointer; color: #666;">&times;</span>
+        </div>
+        
+        <form id="campaignForm" action="{{ url_for('create_campaign') }}" method="POST" enctype="multipart/form-data">
+            <div style="margin-bottom: 15px;">
+                <label for="name" style="display: block; margin-bottom: 5px; font-weight: 500;">Kampagnenname*</label>
+                <input type="text" id="name" name="name" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="system" style="display: block; margin-bottom: 5px; font-weight: 500;">System*</label>
+                <select id="system" name="system" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: white;">
+                    <option value="" disabled selected>Bitte wähle ein System</option>
+                    {% for system in common_systems %}
+                        <option value="{{ system }}">{{ system }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="description" style="display: block; margin-bottom: 5px; font-weight: 500;">Beschreibung</label>
+                <textarea id="description" name="description" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; resize: vertical;"></textarea>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label for="image" style="display: block; margin-bottom: 5px; font-weight: 500;">Bild (optional)</label>
+                <input type="file" id="image" name="image" accept="image/*" style="width: 100%;">
+                <small style="display: block; color: #666; margin-top: 5px;">Erlaubte Formate: JPG, PNG, GIF</small>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="cancel-btn" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 5px; cursor: pointer;">Abbrechen</button>
+                <button type="submit" style="padding: 10px 20px; background-color: var(--primary-color); color: white; border: none; border-radius: 5px; cursor: pointer;">Kampagne erstellen</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="container" style="max-width: 100%; padding: 15px 0 80px 0;">
+    <div style="padding: 0 15px;">
+        <!-- Neue Kampagne Button -->
+        <button id="newCampaignBtn" class="btn btn-primary" style="width: 100%; padding: 15px; margin-bottom: 20px; font-size: 1.1em; border-radius: 10px; background-color: var(--primary-color); color: white; border: none; cursor: pointer;">
+            <i class="fas fa-plus-circle"></i> Neue Kampagne erstellen
+        </button>
+        
+        <!-- Search Bar -->
+        <div class="card" style="margin-bottom: 20px; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div class="card-body" style="padding: 15px;">
+                <form action="{{ url_for('campaigns') }}" method="get" style="margin-bottom: 0;">
+                    <div style="position: relative;">
+                        <input type="text" 
+                               name="q" 
+                               value="{{ search_query }}" 
+                               placeholder="Kampagnen durchsuchen..." 
+                               style="width: 100%; padding: 12px 15px; padding-right: 40px; border: 1px solid #ddd; border-radius: 8px; font-size: 1em;">
+                        <button type="submit" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #666; cursor: pointer;">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- System Filter Bubbles -->
+        {% if systems %}
+        <div style="margin-bottom: 20px; overflow-x: auto; white-space: nowrap; padding-bottom: 5px;">
+            <a href="{{ url_for('campaigns', q=search_query) }}" 
+               class="filter-bubble {% if not current_system %}active{% endif %}"
+               style="display: inline-block; margin-right: 8px; margin-bottom: 8px; padding: 8px 15px; 
+                      background-color: {% if not current_system %}var(--primary-color){% else %}#f0f0f0{% endif %}; 
+                      color: {% if not current_system %}white{% else %}#333{% endif %}; 
+                      border-radius: 20px; text-decoration: none; font-size: 0.9em;
+                      transition: all 0.2s ease;">
+                Alle Systeme
+            </a>
+            {% for system in systems %}
+            <a href="{{ url_for('campaigns', q=search_query, system=system) }}" 
+               class="filter-bubble {% if current_system == system %}active{% endif %}"
+               style="display: inline-block; margin-right: 8px; margin-bottom: 8px; padding: 8px 15px; 
+                      background-color: {% if current_system == system %}var(--primary-color){% else %}#f0f0f0{% endif %}; 
+                      color: {% if current_system == system %}white{% else %}#333{% endif %}; 
+                      border-radius: 20px; text-decoration: none; font-size: 0.9em;
+                      transition: all 0.2s ease;">
+                {{ system }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Campaigns List -->
+        <div class="card" style="border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div class="card-header" style="background-color: var(--primary-color); color: white; padding: 12px 15px;">
+                <h2 style="margin: 0; font-size: 1.2em; display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="fas fa-dice-d20"></i> Meine Kampagnen</span>
+                    <span style="font-size: 0.9em; font-weight: normal; opacity: 0.9;">{{ campaigns|length }} Kampagne{% if campaigns|length != 1 %}n{% endif %}</span>
+                </h2>
+            </div>
+            
+            {% if campaigns %}
+            <div class="card-body" style="padding: 15px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
+                    {% for campaign in campaigns %}
+                    <a href="{{ url_for('view_campaign', campaign_id=campaign.id) }}" 
+                       class="kampagne-card" 
+                       style="display: block; border-radius: 8px; overflow: hidden; 
+                              box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+                              text-decoration: none; color: inherit;
+                              transition: transform 0.2s, box-shadow 0.2s;">
+                        {% if campaign.image and campaign.image != 'default_campaign.jpg' %}
+                        <div style="height: 150px; background-size: contain; background-position: center; background-repeat: no-repeat;
+                                 background-color: #f8f9fa; background-image: url('{{ url_for('static', filename='campaign_images/' + campaign.image) }}');">
+                        </div>
+                        {% else %}
+                        <div style="height: 150px; background: #f0f0f0; display: flex; align-items: center; 
+                                 justify-content: center; font-size: 2.5em; color: #999;">
+                            <i class="fas fa-dice-d20"></i>
+                        </div>
+                        {% endif %}
+                        
+                        <div style="padding: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
+                                <h3 style="margin: 0; font-size: 1.1em; color: var(--primary-color);">{{ campaign.name }}</h3>
+                                <span style="font-size: 0.8em; background: #f0f0f0; padding: 2px 8px; 
+                                          border-radius: 10px; color: #666;">
+                                    {{ campaign.system }}
+                                </span>
+                            </div>
+                            
+                            {% if campaign.description %}
+                            <p style="margin: 8px 0 0 0; font-size: 0.9em; color: #555; 
+                                     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; 
+                                     overflow: hidden; text-overflow: ellipsis;">
+                                {{ campaign.description }}
+                            </p>
+                            {% endif %}
+                            
+                            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #eee; 
+                                      display: flex; justify-content: space-between; align-items: center;">
+                                <div style="font-size: 0.8em; color: #777;">
+                                    <i class="fas fa-crown" style="color: #ffc107; margin-right: 5px;"></i>
+                                    {{ campaign.dm.full_name or campaign.dm.username }}
+                                </div>
+                                <div style="font-size: 0.8em; color: #777;">
+                                    <i class="far fa-calendar-alt" style="margin-right: 5px;"></i>
+                                    {{ campaign.created_at.strftime('%d.%m.%Y') }}
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div style="padding: 30px; text-align: center; color: #666;">
+                <i class="fas fa-dice-d20" style="font-size: 3em; opacity: 0.3; margin-bottom: 15px; display: block;"></i>
+                <p style="margin: 0;">
+                    {% if search_query or current_system %}
+                    Keine Kampagnen gefunden, die deinen Suchkriterien entsprechen.
+                    {% else %}
+                    Du bist noch keiner Kampagne beigetreten.
+                    {% endif %}
+                </p>
+                <a href="{{ url_for('home') }}" class="btn btn-primary" 
+                   style="display: inline-block; margin-top: 15px; padding: 8px 20px; 
+                          background-color: var(--primary-color); color: white; 
+                          border-radius: 5px; text-decoration: none;">
+                    <i class="fas fa-plus"></i> Neue Kampagne erstellen
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Modal functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('campaignModal');
+        const btn = document.getElementById('newCampaignBtn');
+        const span = document.getElementsByClassName('close')[0];
+        const cancelBtn = document.querySelector('.cancel-btn');
+        
+        // Open modal when button is clicked
+        if (btn) {
+            btn.onclick = function() {
+                modal.style.display = 'block';
+            };
+        }
+        
+        // Close modal when X is clicked
+        if (span) {
+            span.onclick = function() {
+                modal.style.display = 'none';
+            };
+        }
+        
+        // Close modal when cancel button is clicked
+        if (cancelBtn) {
+            cancelBtn.onclick = function() {
+                modal.style.display = 'none';
+            };
+        }
+        
+        // Close modal when clicking outside the modal content
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        };
+    });
+</script>
+
+<style>
+.kampagne-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.filter-bubble:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Responsive Design Anpassungen */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 10px !important;
+    }
+    
+    .kampagne-card {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (min-width: 768px) {
+    .container {
+        max-width: 1200px !important;
+        margin: 0 auto;
+        padding-bottom: 80px !important;
+    }
+}
+
+/* Scrollbar for filter bubbles */
+::-webkit-scrollbar {
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+}
+</style>
+{% endblock %}

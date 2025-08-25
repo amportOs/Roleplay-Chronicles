@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <!-- Back Button -->
+            <a href="{{ url_for('home') }}" style="display: inline-block; margin-bottom: 15px; color: var(--primary-color); text-decoration: none;">
+                <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
+            </a>
+            <style>
+                /* layout-only helpers (no color overrides) */
+                .npc-name-plaque {
+                    position: absolute;
+                    left: 0;
+                    bottom: 0;
+                    width: 100%;
+                    padding: 8px 12px;
+                    text-align: center;
+                    color: #fff;
+                    font-weight: 700;
+                    letter-spacing: .5px;
+                    text-transform: uppercase;
+                    text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+                    /* plaque styling */
+                    background: linear-gradient(180deg, #8c2f1b 0%, #6e2415 100%);
+                    border-top: 2px solid #d9a441;
+                    border-bottom: 2px solid #d9a441;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.2);
+                    z-index: 2;
+                }
+                .npc-card { overflow: hidden; }
+                /* portrait container + image cover */
+                .npc-portrait { position: relative; width: 100%; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 6px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; }
+                .npc-img { width: 100%; height: 100%; object-fit: contain; display: block; background-color: #f8f9fa; }
+                /* grid: at least 2 columns; expand automatically on wider screens (no hard cap of 3) */
+                .npc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 180px)); gap: 16px; justify-content: start; }
+                @media (min-width: 576px) { .npc-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 200px)); } }
+                @media (min-width: 992px) { .npc-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 220px)); } }
+                .npc-item { width: 100%; }
+                /* full-width search bar */
+                .npc-search { display: flex; align-items: stretch; width: 100%; gap: 8px; }
+                .npc-search input[type="text"] { flex: 1 1 auto; min-width: 0; }
+                /* page spacing helpers */
+                .npc-top-gap { margin-top: 24px; }
+                .npc-between-gap { margin-bottom: 24px; }
+                /* tag-like toggle for important filter (match .tag-pill design) */
+                .toggle-wrap { display: flex; align-items: center; gap: 8px; }
+                .toggle-input { position: absolute; opacity: 0; width: 1px; height: 1px; overflow: hidden; }
+                .toggle-tag {
+                    display: inline-block;
+                    padding: 1px 8px;
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: .4px;
+                    border-radius: 2px;
+                    cursor: pointer;
+                    user-select: none;
+                    border: 1.5px solid #ced4da;
+                    color: #6c757d;
+                    background: #f1f3f5;
+                    transition: all 0.15s ease-in-out;
+                }
+                .toggle-tag:hover { filter: brightness(0.97); }
+                .toggle-input:checked + .toggle-tag {
+                    color: #fff;
+                    background: linear-gradient(180deg, #8c2f1b 0%, #6e2415 100%);
+                    border: 1.5px solid #d9a441;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.2);
+                }
+            </style>
+
+            {% if is_dm or current_user in campaign.players %}
+            <div class="npc-top-gap npc-between-gap">
+                <a href="{{ url_for('new_npc', campaign_id=campaign.id) }}" class="btn btn-primary btn-lg w-100">
+                    <i class="fas fa-plus"></i> Neuer NPC
+                </a>
+            </div>
+            {% endif %}
+            
+            <!-- Search Bar -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form id="npc-search-form" method="get" action="{{ url_for('npcs', campaign_id=campaign.id) }}">
+                        <div class="npc-search">
+                            <input type="text" name="search" class="form-control" placeholder="NPCs durchsuchen..." value="{{ search_query }}">
+                            <button class="btn btn-outline-secondary" type="submit" title="Suchen"><i class="fas fa-search"></i></button>
+                        </div>
+                        <div class="toggle-wrap mt-2">
+                            <input class="toggle-input" type="checkbox" id="importantOnly" name="important" value="1" {% if important_only %}checked{% endif %}>
+                            <label class="toggle-tag" for="importantOnly">Wichtige NPCs anzeigen</label>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- NPC List as tiles -->
+            {% if npcs %}
+                <div class="npc-grid">
+                    {% for npc in npcs %}
+                    <div class="npc-item">
+                        <div class="card h-100 d-flex flex-column npc-card">
+                            <a href="{{ url_for('view_npc', campaign_id=campaign.id, npc_id=npc.id) }}" class="text-decoration-none">
+                                <div class="npc-portrait">
+                                    {% if npc.image == 'default_npc.jpg' %}
+                                        <i class="fas fa-user fa-3x text-muted"></i>
+                                    {% else %}
+                                        <img src="{{ url_for('static', filename='npc_images/' + npc.image) }}" alt="{{ npc.name }}" class="npc-img">
+                                    {% endif %}
+                                    <div class="npc-name-plaque">{{ npc.name }}</div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    {% if search_query %}
+                        Keine NPCs gefunden, die deiner Suche entsprechen.
+                    {% else %}
+                        Noch keine NPCs vorhanden.
+                        {% if is_dm or current_user in campaign.players %} Erstelle den ersten NPC!{% endif %}
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+    
+    {# Bottom Navigation #}
+    {% include 'campaign_bottom_nav.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const chk = document.getElementById('importantOnly');
+  const form = document.getElementById('npc-search-form');
+  if (chk && form) {
+    chk.addEventListener('change', function() {
+      form.submit();
+    });
+  }
+});
+</script>
+{% endblock %}

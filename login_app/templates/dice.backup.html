@@ -1,0 +1,1085 @@
+{% extends "base.html" %}
+
+{% block title %}Würfeln{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script>
+// Global variables
+const selectedDice = [];
+const rollHistory = [];
+const maxHistory = 5;
+</script>
+<style>
+/* Dice buttons */
+.add-dice-btn {
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.add-dice-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.add-dice-btn i {
+    margin-bottom: 0.25rem;
+}
+
+/* Selected dice */
+.die-badge {
+    display: inline-flex;
+    align-items: center;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 20px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.die-badge i {
+    margin-right: 0.5rem;
+    color: #0d6efd;
+}
+
+.quantity-controls {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 0.5rem;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #dee2e6;
+}
+
+.quantity-controls button {
+    background: none;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.quantity-controls button:hover {
+    background: #f1f1f1;
+}
+
+.quantity-controls .quantity {
+    padding: 0 0.5rem;
+    min-width: 1.5rem;
+    text-align: center;
+    border-left: 1px solid #dee2e6;
+    border-right: 1px solid #dee2e6;
+}
+
+.remove-die {
+    margin-left: 0.5rem;
+    cursor: pointer;
+    color: #dc3545;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0.25rem;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.remove-die:hover {
+    background: #f8d7da;
+}
+
+/* Results */
+.die-result {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #0d6efd;
+}
+
+.die-result h5 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.dice-rolls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+}
+
+.dice-roll {
+    background: #e9ecef;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+/* History */
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid rgba(0,0,0,.125);
+    margin-bottom: -1px;
+}
+
+.history-item:first-child {
+    border-top-left-radius: 0.25rem;
+    border-top-right-radius: 0.25rem;
+}
+
+.history-item:last-child {
+    border-bottom-left-radius: 0.25rem;
+    border-bottom-right-radius: 0.25rem;
+    margin-bottom: 0;
+}
+
+.history-time {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-right: 0.5rem;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.die-badge, .history-item, .die-result {
+    animation: fadeIn 0.3s ease-out;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2><i class="fas fa-dice"></i> Würfeln</h2>
+    
+    <div class="row mt-4">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <!-- Step 1: Select Dice -->
+                    <div id="selectDiceStep">
+                        <h4 class="mb-4"><i class="fas fa-dice-d20 me-2"></i>Würfel auswählen</h4>
+                        
+                        <div class="row mb-3 g-2">
+                            <div class="col-4 col-sm-2">
+                                <button data-sides="4" class="btn btn-outline-primary w-100 py-3 add-dice-btn">
+                                    <i class="fas fa-dice-d4 fa-2x d-block mb-1"></i>
+                                    <span>W4</span>
+                                </button>
+                            </div>
+                            <div class="col-4 col-sm-2">
+                                <button data-sides="6" class="btn btn-outline-primary w-100 py-3 add-dice-btn">
+                                    <i class="fas fa-dice fa-2x d-block mb-1"></i>
+                                    <span>W6</span>
+                                </button>
+                            </div>
+                            <div class="col-4 col-sm-2">
+                                <button data-sides="8" class="btn btn-outline-primary w-100 py-3 add-dice-btn">
+                                    <i class="fas fa-dice-d8 fa-2x d-block mb-1"></i>
+                                    <span>W8</span>
+                                </button>
+                            </div>
+                            <div class="col-4 col-sm-2">
+                                <button data-sides="10" class="btn btn-outline-primary w-100 py-3 add-dice-btn">
+                                    <i class="fas fa-dice-d10 fa-2x d-block mb-1"></i>
+                                    <span>W10</span>
+                                </button>
+                            </div>
+                            <div class="col-4 col-sm-2">
+                                <button data-sides="12" class="btn btn-outline-primary w-100 py-3 add-dice-btn">
+                                    <i class="fas fa-dice-d12 fa-2x d-block mb-1"></i>
+                                    <span>W12</span>
+                                </button>
+                            </div>
+                            <div class="col-4 col-sm-2">
+                                <button data-sides="20" class="btn btn-outline-primary w-100 py-3 add-dice-btn">
+                                    <i class="fas fa-dice-d20 fa-2x d-block mb-1"></i>
+                                    <span>W20</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="selectedDice" class="mb-4">
+                            <h5><i class="fas fa-list-check me-2"></i>Ausgewählte Würfel:</h5>
+                            <div id="diceList" class="d-flex flex-wrap gap-2 mb-3">
+                                <!-- Selected dice will be added here -->
+                            </div>
+                            <p id="noDiceMessage" class="text-muted text-center py-3 border rounded">
+                                <i class="fas fa-info-circle me-2"></i>Keine Würfel ausgewählt
+                            </p>
+                        </div>
+                        
+                        <button id="rollButton" class="btn btn-primary btn-lg w-100 py-3" disabled>
+                            <i class="fas fa-dice-d20 me-2"></i>Würfeln
+                        </button>
+                    </div>
+                    
+                    <!-- Step 2: Show Results -->
+                    <div id="resultsStep" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Ergebnisse</h4>
+                            <button id="backButton" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-arrow-left me-1"></i> Zurück
+                            </button>
+                        </div>
+                        <div id="resultsContainer" class="mb-4">
+                            <!-- Results will be shown here -->
+                        </div>
+                        <div class="mt-4 pt-3 border-top">
+                            <h5><i class="fas fa-history me-2"></i>Letzte Würfe</h5>
+                            <div id="historyList" class="list-group mb-3">
+                                <!-- History will be shown here -->
+                            </div>
+                        </div>
+                        <button id="rollAgainButton" class="btn btn-primary btn-lg w-100 py-3">
+                            <i class="fas fa-redo me-2"></i>Nochmal würfeln
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <h4>Letzte Würfe</h4>
+                    <ul id="rollHistory" class="list-group">
+                        <!-- Roll history will be added here -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedDice = [];
+let rollHistory = [];
+const maxHistory = 10;
+
+// Add a die to the selection with quantity
+function addDice(sides) {
+    const existingDie = selectedDice.find(die => die.sides === sides);
+    if (existingDie) {
+        existingDie.quantity = (existingDie.quantity || 1) + 1;
+    } else {
+        selectedDice.push({ sides: sides, quantity: 1 });
+    }
+    updateDiceList();
+    updateRollButton();
+}
+
+// Remove a die from the selection
+function removeDice(index) {
+    selectedDice.splice(index, 1);
+    updateDiceList();
+    updateRollButton();
+}
+
+// Update the display of selected dice
+function updateDiceList() {
+    const diceList = document.getElementById('diceList');
+    const noDiceMessage = document.getElementById('noDiceMessage');
+    
+    if (selectedDice.length === 0) {
+        noDiceMessage.style.display = 'block';
+        diceList.innerHTML = '';
+        return;
+    }
+    
+    noDiceMessage.style.display = 'none';
+    diceList.innerHTML = '';
+    
+    selectedDice.forEach((die, index) => {
+        const dieElement = document.createElement('div');
+        dieElement.className = 'die-badge';
+        dieElement.setAttribute('data-index', index);
+        dieElement.innerHTML = `
+            ${die.quantity > 1 ? die.quantity + '×' : ''}W${die.sides}
+            <div class="quantity-controls">
+                <button class="btn btn-sm btn-outline-secondary quantity-decrease" data-index="${index}">-</button>
+                <span class="quantity">${die.quantity}</span>
+                <button class="btn btn-sm btn-outline-secondary quantity-increase" data-index="${index}">+</button>
+            </div>
+            <span class="remove-die" data-index="${index}">&times;</span>
+        `;
+        diceList.appendChild(dieElement);
+    });
+}
+
+// Update the roll button state based on selection
+function updateRollButton() {
+    const rollButton = document.getElementById('rollButton');
+    rollButton.disabled = selectedDice.length === 0;
+}
+
+// Prepare to roll the selected dice
+function prepareRoll() {
+    if (selectedDice.length === 0) return;
+    
+    // Show results section
+    document.getElementById('selectDiceStep').style.display = 'none';
+    document.getElementById('resultsStep').style.display = 'block';
+    
+    // Roll all selected dice
+    rollAllDice();
+}
+
+// Roll all selected dice and show results
+function rollAllDice() {
+    const resultsContainer = document.getElementById('resultsContainer');
+    resultsContainer.innerHTML = '';
+    
+    const results = [];
+    let total = 0;
+    
+    selectedDice.forEach(die => {
+        const diceResults = [];
+        let diceTotal = 0;
+        
+        // Roll each die of this type
+        for (let i = 0; i < die.quantity; i++) {
+            const result = Math.floor(Math.random() * die.sides) + 1;
+            diceResults.push(result);
+            diceTotal += result;
+        }
+        
+        results.push({
+            sides: die.sides,
+            quantity: die.quantity,
+            results: diceResults,
+            total: diceTotal
+        });
+        
+        total += diceTotal;
+    });
+    
+    results.forEach(item => {
+        const resultElement = document.createElement('div');
+        resultElement.className = 'result-item mb-3';
+        
+        // Show individual dice results for this type
+        const diceHtml = item.results.map(r => 
+            `<div class="dice">${r}</div>`
+        ).join('');
+        
+        // Show the total for this die type if there are multiple
+        const totalHtml = item.quantity > 1 ? 
+            `<div class="dice-total">= ${item.total}</div>` : '';
+        
+        resultElement.innerHTML = `
+            <div class="d-flex align-items-center mb-2">
+                <div class="dice-group">
+                    ${diceHtml}
+                    ${totalHtml}
+                </div>
+                <div class="dice-label ms-2">
+                    ${item.quantity > 1 ? item.quantity + '×' : ''}W${item.sides}
+                </div>
+            </div>
+        `;
+        resultsContainer.appendChild(resultElement);
+    });
+    
+    // Show grand total if there are multiple dice
+    if (results.length > 1 || selectedDice.reduce((sum, die) => sum + die.quantity, 0) > 1) {
+        const totalElement = document.createElement('div');
+        totalElement.className = 'total-result mt-3 pt-2 border-top';
+        totalElement.innerHTML = `
+            <h5>Gesamtsumme: <strong>${total}</strong></h5>
+        `;
+        resultsContainer.appendChild(totalElement);
+    }
+    
+    // Add to history
+    const diceNotation = selectedDice.map(die => 
+        (die.quantity > 1 ? die.quantity : '') + 'W' + die.sides
+    ).join(' + ');
+    
+    addToHistory(diceNotation, total);
+}
+
+// Go back to dice selection
+function backToSelection() {
+    document.getElementById('selectDiceStep').style.display = 'block';
+    document.getElementById('resultsStep').style.display = 'none';
+}
+
+// Roll the same dice again
+function rollAgain() {
+    rollAllDice();
+}
+
+// Add roll to history
+function addToHistory(diceNotation, result) {
+    rollHistory.unshift({
+        notation: diceNotation,
+        result: result,
+        timestamp: new Date(),
+        timestampStr: new Date().toLocaleTimeString()
+    });
+    
+    // Keep only the last 10 rolls
+    if (rollHistory.length > maxHistory) {
+        rollHistory = rollHistory.slice(0, maxHistory);
+    }
+    
+    updateHistoryDisplay();
+}
+
+// Update the history display
+function updateHistoryDisplay() {
+    const historyList = document.getElementById('rollHistory');
+    historyList.innerHTML = '';
+    
+    if (rollHistory.length === 0) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'list-group-item text-muted text-center';
+        emptyItem.textContent = 'Keine Würfe aufgezeichnet';
+        historyList.appendChild(emptyItem);
+        return;
+    }
+    
+    rollHistory.forEach(roll => {
+        const item = document.createElement('li');
+        item.className = 'list-group-item';
+        item.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="fw-bold">${roll.notation}</span>
+                    <span class="ms-2">= <span class="fw-bold">${roll.result}</span></span>
+                </div>
+                <small class="text-muted">${roll.timestampStr}</small>
+            </div>
+        `;
+        historyList.appendChild(item);
+    });
+}
+
+// Update quantity of a die
+function updateQuantity(index, change) {
+    if (index < 0 || index >= selectedDice.length) return;
+    
+    const die = selectedDice[index];
+    die.quantity = (die.quantity || 1) + change;
+    
+    if (die.quantity <= 0) {
+        selectedDice.splice(index, 1);
+    }
+    
+    updateDiceList();
+    updateRollButton();
+}
+
+// Handle click events on the dice list using event delegation
+document.addEventListener('click', function(e) {
+    // Find the closest button element that was clicked
+    const target = e.target.closest('button, .remove-die');
+    if (!target) return;
+    
+    // Handle remove button clicks
+    if (target.classList.contains('remove-die')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const index = parseInt(target.getAttribute('data-index'));
+        if (!isNaN(index)) {
+            removeDice(index);
+        }
+    }
+    // Handle quantity decrease
+    else if (target.classList.contains('quantity-decrease')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const index = parseInt(target.closest('[data-index]')?.getAttribute('data-index') || '');
+        if (!isNaN(index)) {
+            updateQuantity(index, -1);
+        }
+    }
+    // Handle quantity increase
+    else if (target.classList.contains('quantity-increase')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const index = parseInt(target.closest('[data-index]')?.getAttribute('data-index') || '');
+        if (!isNaN(index)) {
+            updateQuantity(index, 1);
+        }
+    }
+});
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    // Add event listeners to dice buttons
+    document.querySelectorAll('.add-dice-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const sides = parseInt(this.getAttribute('data-sides'));
+            addDice(sides);
+        });
+    });
+    
+    
+    updateDiceList();
+    updateRollButton();
+    updateHistoryDisplay();
+});
+</script>
+
+<style>
+/* Dice buttons */
+.add-dice-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.add-dice-btn i {
+    font-size: 1.2em;
+}
+
+.add-dice-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Die badges */
+.die-badge {
+    display: inline-flex;
+    align-items: center;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 20px;
+    padding: 5px 12px;
+    margin: 5px;
+    font-size: 0.9rem;
+}
+
+.die-badge i {
+    margin-right: 5px;
+    color: #0d6efd;
+}
+
+.quantity-controls {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    background: #fff;
+    border-radius: 15px;
+    overflow: hidden;
+    border: 1px solid #dee2e6;
+}
+
+.quantity-controls button {
+    background: none;
+    border: none;
+    padding: 2px 8px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.quantity-controls button:hover {
+    background: #f1f1f1;
+}
+
+.quantity-controls .quantity {
+    padding: 0 8px;
+    min-width: 25px;
+    text-align: center;
+    border-left: 1px solid #dee2e6;
+    border-right: 1px solid #dee2e6;
+}
+
+.remove-die {
+    margin-left: 8px;
+    cursor: pointer;
+    color: #dc3545;
+    font-size: 1.2em;
+    line-height: 1;
+    padding: 0 5px;
+    border-radius: 50%;
+}
+
+.remove-die:hover {
+    background: #f8d7da;
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+    .die-badge {
+        font-size: 0.8rem;
+        padding: 4px 10px;
+    }
+    
+    .quantity-controls button {
+        padding: 1px 6px;
+    }
+}
+
+.die-badge {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    margin: 0.25rem;
+    min-width: 120px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.die-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.die-badge .remove-die {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    background: #dc3545;
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 10;
+    pointer-events: auto;
+    transition: all 0.2s ease;
+}
+
+.die-badge .remove-die:hover {
+    background: #c82333;
+    transform: scale(1.1);
+}
+
+.quantity-controls {
+    display: flex;
+    align-items: center;
+    margin-left: 10px;
+    background: white;
+    border-radius: 20px;
+    padding: 2px;
+    border: 1px solid #dee2e6;
+}
+
+.quantity-controls button {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border: none;
+    background: #f8f9fa;
+    border-radius: 50%;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+.quantity-controls button:hover {
+    background: #e9ecef;
+}
+
+.quantity-controls .quantity {
+    min-width: 24px;
+    text-align: center;
+    font-weight: bold;
+    color: #495057;
+}
+
+/* Make sure the remove button is always clickable */
+.remove-die {
+    pointer-events: auto !important;
+}
+
+.btn {
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn:active {
+    transform: scale(0.95);
+}
+
+#diceList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 10px 0;
+    width: 100%;
+}
+
+#selectedDice {
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+#selectedDice h5 {
+    margin-bottom: 0.5rem;
+    transition: all 0.2s;
+}
+
+.badge .close {
+    font-size: 1.2rem;
+    line-height: 1;
+    padding-left: 8px;
+    opacity: 0.7;
+}
+
+.badge .close:hover {
+    opacity: 1;
+    color: white !important;
+}
+
+#resultsContainer {
+    min-height: 100px;
+}
+
+.border-top {
+    border-top: 1px solid #dee2e6 !important;
+}
+
+/* Animation for dice results */
+@keyframes rollIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#resultsContainer > div {
+    animation: rollIn 0.3s ease-out;
+}
+</style>
+</div>
+
+<script>
+// Dice roller functions
+function getDieIcon(sides) {
+    const icons = {
+        4: '<i class="fas fa-dice-d4"></i>',
+        6: '<i class="fas fa-dice"></i>',
+        8: '<i class="fas fa-dice-d8"></i>',
+        10: '<i class="fas fa-dice-d10"></i>',
+        12: '<i class="fas fa-dice-d12"></i>',
+        20: '<i class="fas fa-dice-d20"></i>'
+    };
+    return icons[sides] || '<i class="fas fa-dice"></i>';
+}
+
+// Add a die to the selection with quantity
+function addDice(sides) {
+    const existingDie = selectedDice.find(die => die.sides === sides);
+    if (existingDie) {
+        existingDie.quantity = (existingDie.quantity || 1) + 1;
+    } else {
+        selectedDice.push({ sides: sides, quantity: 1 });
+    }
+    updateDiceList();
+    updateRollButton();
+}
+
+// Remove a die from the selection
+function removeDice(index) {
+    selectedDice.splice(index, 1);
+    updateDiceList();
+    updateRollButton();
+}
+
+// Update the display of selected dice
+function updateDiceList() {
+    const diceList = document.getElementById('diceList');
+    const noDiceMessage = document.getElementById('noDiceMessage');
+    
+    if (selectedDice.length === 0) {
+        noDiceMessage.style.display = 'block';
+        diceList.innerHTML = '';
+        return;
+    }
+    
+    noDiceMessage.style.display = 'none';
+    diceList.innerHTML = '';
+    
+    selectedDice.forEach((die, index) => {
+        const dieElement = document.createElement('div');
+        dieElement.className = 'die-badge';
+        dieElement.setAttribute('data-index', index);
+        
+        const dieIcon = getDieIcon(die.sides);
+        
+        dieElement.innerHTML = `
+            ${dieIcon}
+            ${die.quantity > 1 ? die.quantity + '×' : ''}W${die.sides}
+            <div class="quantity-controls">
+                <button class="quantity-decrease" data-index="${index}">-</button>
+                <span class="quantity">${die.quantity}</span>
+                <button class="quantity-increase" data-index="${index}">+</button>
+            </div>
+            <span class="remove-die" data-index="${index}">&times;</span>
+        `;
+        
+        diceList.appendChild(dieElement);
+    });
+    
+    // Add event listeners for the new elements
+    document.querySelectorAll('.quantity-decrease').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.getAttribute('data-index'));
+            updateQuantity(index, -1);
+        });
+    });
+    
+    document.querySelectorAll('.quantity-increase').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.getAttribute('data-index'));
+            updateQuantity(index, 1);
+        });
+    });
+    
+    document.querySelectorAll('.remove-die').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.getAttribute('data-index'));
+            removeDice(index);
+        });
+    });
+}
+
+// Get appropriate die icon
+function getDieIcon(sides) {
+    const icons = {
+        4: '<i class="fas fa-dice-d4"></i>',
+        6: '<i class="fas fa-dice"></i>',
+        8: '<i class="fas fa-dice-d8"></i>',
+        10: '<i class="fas fa-dice-d10"></i>',
+        12: '<i class="fas fa-dice-d12"></i>',
+        20: '<i class="fas fa-dice-d20"></i>'
+    };
+    return icons[sides] || '<i class="fas fa-dice"></i>';
+}
+
+// Update the roll button state based on selection
+function updateRollButton() {
+    const rollButton = document.getElementById('rollButton');
+    rollButton.disabled = selectedDice.length === 0;
+}
+
+// Update quantity of a die
+function updateQuantity(index, change) {
+    const die = selectedDice[index];
+    die.quantity += change;
+    
+    if (die.quantity <= 0) {
+        selectedDice.splice(index, 1);
+    }
+    
+    updateDiceList();
+    updateRollButton();
+}
+
+// Prepare to roll the selected dice
+function prepareRoll() {
+    if (selectedDice.length === 0) return;
+    
+    // Show results section
+    document.getElementById('selectDiceStep').style.display = 'none';
+    document.getElementById('resultsStep').style.display = 'block';
+    
+    // Roll all dice
+    rollAllDice();
+}
+
+// Roll all selected dice and show results
+function rollAllDice() {
+    const resultsContainer = document.getElementById('resultsContainer');
+    resultsContainer.innerHTML = '';
+    
+    let total = 0;
+    
+    selectedDice.forEach(die => {
+        const dieResult = document.createElement('div');
+        dieResult.className = 'mb-3';
+        
+        const results = [];
+        let subtotal = 0;
+        
+        // Roll the die the specified number of times
+        for (let i = 0; i < die.quantity; i++) {
+            const result = Math.floor(Math.random() * die.sides) + 1;
+            results.push(result);
+            subtotal += result;
+        }
+        
+        total += subtotal;
+        
+        // Create result display
+        dieResult.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <h5>${die.quantity} × W${die.sides}</h5>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-primary me-2">${results.join(' + ')}</span>
+                    <strong>= ${subtotal}</strong>
+                </div>
+            </div>
+            <div class="progress mt-2" style="height: 10px;">
+                <div class="progress-bar" role="progressbar" 
+                     style="width: ${(subtotal / (die.quantity * die.sides)) * 100}%" 
+                     aria-valuenow="${subtotal}" 
+                     aria-valuemin="${die.quantity}" 
+                     aria-valuemax="${die.quantity * die.sides}">
+                </div>
+            </div>
+        `;
+        
+        resultsContainer.appendChild(dieResult);
+    });
+    
+    // Add total
+    const totalElement = document.createElement('div');
+    totalElement.className = 'mt-4 pt-3 border-top';
+    totalElement.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+            <h4>Gesamtsumme:</h4>
+            <h2 class="text-primary">${total}</h2>
+        </div>
+    `;
+    resultsContainer.appendChild(totalElement);
+    
+    // Add to history
+    addToHistory(total);
+}
+
+// Add roll to history
+function addToHistory(total) {
+    // Create notation string (e.g., "2W6 + 1W20")
+    const notation = selectedDice.map(die => 
+        (die.quantity > 1 ? die.quantity : '') + 'W' + die.sides
+    ).join(' + ');
+    
+    // Add to history
+    rollHistory.unshift({
+        notation: notation,
+        result: total,
+        timestamp: new Date().toLocaleTimeString()
+    });
+    
+    // Limit history size
+    if (rollHistory.length > maxHistory) {
+        rollHistory = rollHistory.slice(0, maxHistory);
+    }
+    
+    // Update history display
+    updateHistoryDisplay();
+}
+
+// Update the history display
+function updateHistoryDisplay() {
+    const historyList = document.getElementById('historyList');
+    if (!historyList) return;
+    
+    historyList.innerHTML = '';
+    
+    rollHistory.forEach((roll, index) => {
+        const item = document.createElement('li');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+        item.innerHTML = `
+            <div>
+                <span class="badge bg-secondary me-2">${roll.timestamp}</span>
+                ${roll.notation}
+            </div>
+            <span class="badge bg-primary rounded-pill">${roll.result}</span>
+        `;
+        historyList.appendChild(item);
+    });
+}
+
+// Go back to dice selection
+function backToSelection() {
+    document.getElementById('selectDiceStep').style.display = 'block';
+    document.getElementById('resultsStep').style.display = 'none';
+}
+
+// Roll again with same dice
+function rollAgain() {
+    rollAllDice();
+}
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    // Add event listeners to dice buttons
+    document.querySelectorAll('.add-dice-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const sides = parseInt(this.getAttribute('data-sides'));
+            addDice(sides);
+        });
+    });
+    
+    // Add event listeners to action buttons
+    document.getElementById('rollButton').addEventListener('click', prepareRoll);
+    document.getElementById('backButton').addEventListener('click', backToSelection);
+    document.getElementById('rollAgainButton').addEventListener('click', rollAgain);
+    
+    // Initialize the page
+    updateDiceList();
+    updateRollButton();
+    updateHistoryDisplay();
+    
+    // Remove any existing event listeners to prevent duplicates
+    document.querySelectorAll('.die-badge button, .remove-die').forEach(el => {
+        el.replaceWith(el.cloneNode(true));
+    });
+    
+    // Add event delegation for dynamically added elements
+    document.addEventListener('click', function(e) {
+        // Handle remove die button
+        if (e.target.classList.contains('remove-die')) {
+            const index = parseInt(e.target.getAttribute('data-index'));
+            removeDice(index);
+        }
+        // Handle quantity decrease
+        else if (e.target.classList.contains('quantity-decrease')) {
+            const index = parseInt(e.target.getAttribute('data-index'));
+            updateQuantity(index, -1);
+        }
+        // Handle quantity increase
+        else if (e.target.classList.contains('quantity-increase')) {
+            const index = parseInt(e.target.getAttribute('data-index'));
+            updateQuantity(index, 1);
+        }
+    });
+});
+</script>
+
+{% endblock %}

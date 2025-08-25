@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">{% if npc %}Bearbeite {{ npc.name }}{% else %}Neuer NPC{% endif %}</h2>
+                </div>
+                <div class="card-body">
+                    <style>
+                        /* Image preview portrait frame */
+                        .preview-portrait {
+                            position: relative;
+                            width: 100%;
+                            max-width: 260px;
+                            min-height: 260px;
+                            aspect-ratio: 3 / 4;
+                            margin: 0 auto;
+                            border: 1px solid #dee2e6;
+                            border-radius: 0.25rem;
+                            overflow: hidden;
+                            background: #f8f9fa;
+                        }
+                        .preview-portrait img {
+                            width: 100%;
+                            height: 100%;
+                            object-fit: cover;
+                            display: block;
+                        }
+                        .preview-hint {
+                            position: absolute;
+                            inset: 0;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            text-align: center;
+                            padding: 12px;
+                            color: #fff;
+                            font-weight: 600;
+                            line-height: 1.3;
+                            background: rgba(0,0,0,0.35);
+                            pointer-events: none;
+                        }
+                        /* Name plaque overlay (matches list style) */
+                        .npc-name-plaque {
+                            position: absolute;
+                            left: 0;
+                            bottom: 0;
+                            width: 100%;
+                            padding: 8px 12px;
+                            text-align: center;
+                            color: #fff;
+                            font-weight: 700;
+                            letter-spacing: .5px;
+                            text-transform: uppercase;
+                            text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+                            background: linear-gradient(180deg, #8c2f1b 0%, #6e2415 100%);
+                            border-top: 2px solid #d9a441;
+                            border-bottom: 2px solid #d9a441;
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.2);
+                            z-index: 2;
+                            pointer-events: none;
+                        }
+                        /* Drag-and-drop visual feedback */
+                        .preview-portrait.dragover {
+                            outline: 3px dashed #0d6efd;
+                            outline-offset: -6px;
+                            filter: brightness(0.95);
+                        }
+                        /* Clickable tag pills - styled like the plaque (brown with gold border) */
+                        .tag-pill {
+                            display: inline-block;
+                            cursor: pointer;
+                            user-select: none;
+                            padding: 2px 10px;
+                            font-weight: 700;
+                            text-transform: uppercase;
+                            letter-spacing: .5px;
+                            color: #fff;
+                            background: linear-gradient(180deg, #8c2f1b 0%, #6e2415 100%);
+                            border: 2px solid #d9a441;
+                            border-radius: 2px;
+                            box-shadow: 0 1px 2px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.2);
+        
+                        }
+                        .tag-pill:hover { filter: brightness(1.05); }
+                    </style>
+                    <form method="post" enctype="multipart/form-data" id="npcForm">
+                        <div class="row">
+                            <div class="col-12 d-flex justify-content-center">
+                                <!-- NPC Image -->
+                                <div class="mb-4 text-center">
+                                    <div class="mb-3 preview-portrait" id="previewDropArea" title="Klicken oder Datei hier ablegen" data-has-image="{% if npc and npc.image != 'default_npc.jpg' %}1{% else %}0{% endif %}">
+                                        {% if npc and npc.image != 'default_npc.jpg' %}
+                                            <img id="imagePreview" src="{{ url_for('static', filename='npc_images/' + npc.image) }}" alt="">
+                                        {% else %}
+                                            <img id="imagePreview" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAt8Bq2v2mFkAAAAASUVORK5CYII=" alt="">
+                                        {% endif %}
+                                        <div class="preview-hint" id="previewHint">Bild hier hochladen oder per Drag & Drop ablegen</div>
+                                        <div class="npc-name-plaque" id="previewPlaque">{{ npc.name if npc and npc.name else 'Name' }}</div>
+                                    </div>
+                                    <!-- Hidden file input, triggered by clicking the preview or via drag&drop -->
+                                    <input type="file" id="image" name="image" accept="image/*" onchange="previewImage(this)" style="display: none;">
+                                    {% if npc and npc.image != 'default_npc.jpg' %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="removeImage" name="remove_image">
+                                        <label class="form-check-label" for="removeImage">
+                                            Aktuelles Bild entfernen
+                                        </label>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <!-- Basic Info -->
+                                <div class="row">
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label for="name">Name</label>
+                                            <input type="text" class="form-control" id="name" name="name" value="{{ npc.name if npc else '' }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label for="race">Volk/Rasse</label>
+                                            <input type="text" class="form-control" id="race" name="race" value="{{ npc.race if npc else '' }}">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label for="age">Alter</label>
+                                            <input type="number" class="form-control" id="age" name="age" min="0" value="{{ npc.age if npc and npc.age else '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label for="gender">Geschlecht</label>
+                                            <select class="form-control" id="gender" name="gender">
+                                                <option value="">-</option>
+                                                <option value="männlich" {% if npc and npc.gender == 'männlich' %}selected{% endif %}>männlich</option>
+                                                <option value="weiblich" {% if npc and npc.gender == 'weiblich' %}selected{% endif %}>weiblich</option>
+                                                <option value="unbekannt" {% if npc and npc.gender == 'unbekannt' %}selected{% endif %}>unbekannt</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- Tag Section -->
+                        <div class="form-group">
+                            <label for="tagsInput">Tag</label>
+                            <div class="input-group mb-2">
+                                <input type="text" class="form-control" id="tagsInput" placeholder="z. B. Händler, Dorf, Begleiter">
+                                <button class="btn btn-outline-primary" type="button" id="addTagBtn">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <!-- Hidden field that will be submitted to server -->
+                            <input type="hidden" id="tagsHidden" name="tags" value="{{ npc.tags if npc and npc.tags else '' }}">
+                            <div id="tagsList" class="mt-2"></div>
+                            <small class="form-text text-muted">Klicke auf einen Tag, um ihn zu entfernen.</small>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- Detailed Info -->
+                        <div class="form-group">
+                            <label for="appearance">Aussehen</label>
+                            <textarea class="form-control" id="appearance" name="appearance" rows="3">{{ npc.appearance if npc else '' }}</textarea>
+                            <small class="form-text text-muted">Beschreibe das Aussehen des NPCs (Größe, Haarfarbe, Kleidung, Besonderheiten, etc.).</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="personality">Persönlichkeit</label>
+                            <textarea class="form-control" id="personality" name="personality" rows="3">{{ npc.personality if npc else '' }}</textarea>
+                            <small class="form-text text-muted">Beschreibe die Persönlichkeit, Eigenarten und Verhaltensweisen des NPCs.</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="background">Hintergrund</label>
+                            <textarea class="form-control" id="background" name="background" rows="4">{{ npc.background if npc else '' }}</textarea>
+                            <small class="form-text text-muted">Hintergrundgeschichte, Motivationen, Beziehungen zu anderen Charakteren, etc.</small>
+                        </div>
+                        
+                        <div class="form-group form-check">
+                            <input type="checkbox" class="form-check-input" id="is_important" name="is_important" {% if npc and npc.is_important %}checked{% endif %}>
+                            <label class="form-check-label" for="is_important">Wichtiger NPC</label>
+                            <small class="form-text text-muted d-block">Wichtige NPCs werden in der Übersicht hervorgehoben.</small>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% if npc %}{{ url_for('view_npc', campaign_id=campaign.id, npc_id=npc.id) }}{% else %}{{ url_for('npcs', campaign_id=campaign.id) }}{% endif %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i> Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Speichern
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+    
+    <!-- Spacer so fixed bottom nav doesn't cover buttons/content -->
+    <div style="height: 90px;"></div>
+    
+    {# Bottom Navigation #}
+    {% include 'campaign_bottom_nav.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Image preview (fills portrait frame)
+function previewImage(input) {
+    const preview = document.getElementById('imagePreview');
+    const file = input.files[0];
+    if (!preview) return;
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = function() {
+        preview.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+    const hint = document.getElementById('previewHint');
+    if (hint) hint.style.display = 'none';
+}
+
+// (Removed) file input label updater: we hide the input and use preview click instead
+
+// Initialization that works regardless of DOMContentLoaded timing
+function initNPCEdit() {
+    // Form validation
+    const form = document.getElementById('npcForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const name = document.getElementById('name');
+            if (!name.value.trim()) {
+                e.preventDefault();
+                alert('Bitte gib einen Namen für den NPC ein.');
+                name.focus();
+            }
+        });
+    }
+    // Live update name plaque
+    const nameInput = document.getElementById('name');
+    const plaque = document.getElementById('previewPlaque');
+    if (nameInput && plaque) {
+        const updatePlaque = () => {
+            const val = nameInput.value.trim();
+            plaque.textContent = val || 'Name';
+        };
+        nameInput.addEventListener('input', updatePlaque);
+        updatePlaque();
+    }
+    // Drag-and-drop upload on preview
+    const dropArea = document.getElementById('previewDropArea');
+    const inputFile = document.getElementById('image');
+    if (dropArea && inputFile) {
+        // Initial hint visibility based on whether an image exists
+        const hint = document.getElementById('previewHint');
+        if (hint && dropArea.dataset.hasImage === '1') {
+            hint.style.display = 'none';
+        }
+        ['dragenter','dragover'].forEach(evt => {
+            dropArea.addEventListener(evt, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropArea.classList.add('dragover');
+            });
+        });
+        ['dragleave','drop'].forEach(evt => {
+            dropArea.addEventListener(evt, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropArea.classList.remove('dragover');
+            });
+        });
+        dropArea.addEventListener('drop', (e) => {
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                inputFile.files = e.dataTransfer.files;
+                const changeEvent = new Event('change');
+                inputFile.dispatchEvent(changeEvent);
+                const hint2 = document.getElementById('previewHint');
+                if (hint2) hint2.style.display = 'none';
+            }
+        });
+        // Click preview to open file chooser
+        dropArea.addEventListener('click', () => { inputFile.click(); });
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initNPCEdit);
+} else {
+    initNPCEdit();
+}
+
+// --- Tags handling ---
+document.addEventListener('DOMContentLoaded', function() {
+    const tagsHidden = document.getElementById('tagsHidden');
+    const tagsInput = document.getElementById('tagsInput');
+    const addTagBtn = document.getElementById('addTagBtn');
+    const tagsList = document.getElementById('tagsList');
+
+    if (!tagsHidden || !tagsInput || !addTagBtn || !tagsList) return;
+
+    let tags = (tagsHidden.value || '')
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
+
+    function renderTags() {
+        tagsList.innerHTML = '';
+        tags.forEach(tag => {
+            const span = document.createElement('span');
+            span.className = 'tag-pill me-2 mb-2';
+            span.textContent = tag;
+            span.title = 'Zum Entfernen klicken';
+            span.addEventListener('click', () => removeTag(tag));
+            tagsList.appendChild(span);
+        });
+        tagsHidden.value = tags.join(', ');
+    }
+
+    function addTag(value) {
+        const items = value.split(',').map(t => t.trim()).filter(Boolean);
+        let changed = false;
+        for (const t of items) {
+            if (t && !tags.includes(t)) { tags.push(t); changed = true; }
+        }
+        if (changed) renderTags();
+    }
+
+    function removeTag(value) {
+        tags = tags.filter(t => t !== value);
+        renderTags();
+    }
+
+    addTagBtn.addEventListener('click', () => {
+        if (tagsInput.value.trim()) {
+            addTag(tagsInput.value);
+            tagsInput.value = '';
+            tagsInput.focus();
+        }
+    });
+    tagsInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (tagsInput.value.trim()) {
+                addTag(tagsInput.value);
+                tagsInput.value = '';
+            }
+        }
+    });
+
+    // Initial render from hidden field
+    renderTags();
+});
+</script>
+{% endblock %}

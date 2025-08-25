@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: roleplay-chronicles
+    env: python
+    buildCommand: |
+      pip install -r requirements.txt
+      python init_db.py
+    startCommand: gunicorn "login_app:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.6
+      - key: FLASK_APP
+        value: login_app/app.py
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///instance/site.db

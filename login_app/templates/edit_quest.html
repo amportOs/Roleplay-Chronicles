@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Quest bearbeiten - {{ campaign.name }}{% endblock %}
+{% block content %}
+<div class="container mt-3">
+  <a href="{{ url_for('view_quest', campaign_id=campaign.id, quest_id=quest.id) }}" class="text-decoration-none mb-3 d-inline-block"><i class="fas fa-arrow-left"></i> Zurück zur Quest</a>
+
+  <div class="card">
+    <div class="card-body">
+      <h3 class="card-title mb-3">Quest bearbeiten</h3>
+
+      <form method="post" action="{{ url_for('edit_quest', campaign_id=campaign.id, quest_id=quest.id) }}">
+        <div class="mb-3">
+          <label class="form-label">Titel</label>
+          <input type="text" class="form-control" name="title" value="{{ quest.title }}" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Beschreibung</label>
+          <textarea class="form-control" name="description" rows="6">{{ quest.description }}</textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Belohnung</label>
+          <textarea class="form-control" name="reward" rows="3" placeholder="Gold, Gegenstände, Erfahrungspunkte, Ruf ...">{{ quest.reward }}</textarea>
+        </div>
+        <div class="row g-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select">
+              <option value="open" {{ 'selected' if quest.status=='open' else '' }}>Offen</option>
+              <option value="done" {{ 'selected' if quest.status=='done' else '' }}>Erledigt</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">Priorität</label>
+            <select name="priority" class="form-select">
+              <option value="low" {{ 'selected' if quest.priority=='low' else '' }}>Niedrig</option>
+              <option value="normal" {{ 'selected' if quest.priority=='normal' else '' }}>Normal</option>
+              <option value="high" {{ 'selected' if quest.priority=='high' else '' }}>Hoch</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 d-flex align-items-end">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="is_main" name="is_main" value="1" {{ 'checked' if quest.is_main else '' }}>
+              <label class="form-check-label" for="is_main">Hauptquest</label>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3 mt-3">
+          <label class="form-label">Tags (Komma-getrennt)</label>
+          <input type="text" class="form-control" name="tags" value="{{ quest.tags or '' }}">
+        </div>
+
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" type="submit"><i class="fas fa-save"></i> Speichern</button>
+          <a class="btn btn-outline-secondary" href="{{ url_for('view_quest', campaign_id=campaign.id, quest_id=quest.id) }}">Abbrechen</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

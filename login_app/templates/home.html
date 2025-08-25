@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}Startseite{% endblock %}
+
+{% block content %}
+<!-- Campaign Creation Modal -->
+<div id="campaignModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+    <div class="modal-content" style="background-color: #fefefe; margin: 10% auto; padding: 20px; border-radius: 10px; width: 90%; max-width: 500px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+            <h2 style="margin: 0; color: var(--primary-color);">Neue Kampagne erstellen</h2>
+            <span class="close" style="font-size: 28px; cursor: pointer; color: #666;">&times;</span>
+        </div>
+        
+        <form id="campaignForm" action="{{ url_for('create_campaign') }}" method="POST" enctype="multipart/form-data">
+            <div style="margin-bottom: 15px;">
+                <label for="name" style="display: block; margin-bottom: 5px; font-weight: 500;">Kampagnenname*</label>
+                <input type="text" id="name" name="name" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="system" style="display: block; margin-bottom: 5px; font-weight: 500;">System*</label>
+                <select id="system" name="system" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: white;">
+                    <option value="" disabled selected>Bitte wähle ein System</option>
+                    {% for system in common_systems %}
+                        <option value="{{ system }}">{{ system }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="description" style="display: block; margin-bottom: 5px; font-weight: 500;">Beschreibung</label>
+                <textarea id="description" name="description" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; resize: vertical;"></textarea>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label for="image" style="display: block; margin-bottom: 5px; font-weight: 500;">Bild (optional)</label>
+                <input type="file" id="image" name="image" accept="image/*" style="width: 100%;">
+                <small style="display: block; color: #666; margin-top: 5px;">Erlaubte Formate: JPG, PNG, GIF</small>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="cancel-btn" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 5px; cursor: pointer;">Abbrechen</button>
+                <button type="submit" style="padding: 10px 20px; background-color: var(--primary-color); color: white; border: none; border-radius: 5px; cursor: pointer;">Kampagne erstellen</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="container" style="max-width: 100%; padding: 15px 0 80px 0;">
+    <div style="padding: 0 15px;">
+        <!-- Neue Kampagne Button -->
+        <button id="newCampaignBtn" class="btn btn-primary" style="width: 100%; padding: 15px; margin-bottom: 20px; font-size: 1.1em; border-radius: 10px;">
+            <i class="fas fa-plus-circle"></i> Neue Kampagne erstellen
+        </button>
+
+        <!-- Nächste Termine Section -->
+        <div class="card" style="margin-bottom: 20px; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div class="card-header" style="background-color: var(--primary-color); color: white; padding: 12px 15px;">
+                <h2 style="margin: 0; font-size: 1.2em;">
+                    <i class="far fa-calendar-alt"></i> Nächste Termine
+                </h2>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                {% if upcoming_sessions %}
+                <div style="display: grid; grid-template-columns: 1fr; gap: 0;">
+                    {% for sess in upcoming_sessions %}
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; border-bottom: 1px solid #eee;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <i class="far fa-calendar-alt" style="color: var(--primary-color);"></i>
+                            <div>
+                                <div style="font-weight: 600;">{{ sess.title or 'Geplante Sitzung' }}</div>
+                                <div style="font-size: 0.9em; color: #666;">
+                                    {{ sess.scheduled_at.strftime('%d.%m.%Y %H:%M') }} • {{ campaign_names.get(sess.campaign_id) }}
+                                    {% if sess.location %} • {{ sess.location }}{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('view_campaign', campaign_id=sess.campaign_id) }}">Zur Kampagne</a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div style="padding: 15px; text-align: center; color: #666;">
+                    <i class="far fa-calendar-times" style="font-size: 2em; margin-bottom: 10px; opacity: 0.5;"></i>
+                    <p style="margin: 0;">Keine anstehenden Termine</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Alle Kampagnen Section -->
+        <div class="card" style="border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div class="card-header" style="background-color: var(--primary-color); color: white; padding: 12px 15px;">
+                <h2 style="margin: 0; font-size: 1.2em;">
+                    <i class="fas fa-dice-d20"></i> Alle Kampagnen
+                </h2>
+            </div>
+            <div class="card-body" style="padding: 15px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
+                    {% for campaign in campaigns %}
+                    <div class="kampagne-card" style="border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: transform 0.2s; cursor: pointer;"
+                         onclick="window.location.href='{{ url_for('view_campaign', campaign_id=campaign.id) }}'"
+                         onmouseover="this.style.transform='translateY(-5px)'"
+                         onmouseout="this.style.transform='none'">
+                        {% if campaign.image and campaign.image != 'default_campaign.jpg' %}
+                        <div style="height: 100px; background-size: contain; background-position: center; background-repeat: no-repeat; background-color: #f8f9fa; background-image: url('{{ url_for('static', filename='campaign_images/' + campaign.image) }}');">
+                        </div>
+                        {% else %}
+                        <div style="height: 100px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 2em; color: #999;">
+                            <i class="fas fa-dice-d20"></i>
+                        </div>
+                        {% endif %}
+                        <div style="padding: 10px; text-align: center;">
+                            <div style="font-weight: 500; margin-bottom: 5px;">{{ campaign.name }}</div>
+                            <div style="font-size: 0.8em; color: #666;">{{ campaign.system }}</div>
+{% if characters_by_campaign.get(campaign.id) %}
+                            <div style="margin-top: 5px; padding: 3px 0; border-top: 1px solid #eee; font-size: 0.7em;">
+                                <i class="fas fa-user" style="color: var(--primary-color); margin-right: 3px;"></i>
+                                {{ characters_by_campaign[campaign.id].character_name }}
+                                <span style="color: #888;">({{ characters_by_campaign[campaign.id].character_class }})</span>
+                            </div>
+                            {% else %}
+                            <div style="font-size: 0.7em; color: #888;">
+                                <i class="fas fa-crown" style="color: #ffc107; margin-right: 3px;"></i>
+                                {{ campaign.dm.full_name or campaign.dm.username }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #666;">
+                        <i class="fas fa-dice-d20" style="font-size: 2em; opacity: 0.5; margin-bottom: 10px; display: block;"></i>
+                        <p>Noch keine Kampagnen vorhanden. Erstelle deine erste Kampagne!</p>
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- Placeholder for new campaign button -->
+                    <div class="kampagne-card" style="border-radius: 8px; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; cursor: pointer;"
+                         onclick="document.getElementById('newCampaignBtn').click()">
+                        <div style="text-align: center; padding: 20px; color: #666;">
+                            <i class="fas fa-plus-circle" style="font-size: 2em; margin-bottom: 10px; display: block;"></i>
+                            <div>Neue Kampagne</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Modal functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('campaignModal');
+        const btn = document.getElementById('newCampaignBtn');
+        const span = document.getElementsByClassName('close')[0];
+        const cancelBtn = document.querySelector('.cancel-btn');
+        
+        // Open modal when button is clicked
+        btn.onclick = function() {
+            modal.style.display = 'block';
+        }
+        
+        // Close modal when X is clicked
+        span.onclick = function() {
+            modal.style.display = 'none';
+        }
+        
+        // Close modal when cancel button is clicked
+        if (cancelBtn) {
+            cancelBtn.onclick = function() {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // Close modal when clicking outside the modal content
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    });
+</script>
+
+<style>
+    /* Modal styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal-content {
+        background-color: #fefefe;
+        margin: 10% auto;
+        padding: 20px;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+    }
+    
+    /* Responsive Design Anpassungen */
+    @media (min-width: 768px) {
+        .container {
+            max-width: 800px !important;
+            margin: 0 auto;
+            padding-bottom: 80px !important; /* Platz für die untere Navigation */
+        }
+        
+        .profile-header {
+            border-radius: 0 0 20px 20px;
+            margin-bottom: 20px;
+        }
+    }
+    
+    /* Button Hover Effekte */
+    .btn {
+        transition: all 0.2s ease;
+    }
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    /* Kampagnen Karten Hover Effekt */
+    .kampagne-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
+    }
+    .kampagne-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    /* Anpassungen für die untere Navigation */
+    @media (max-width: 767px) {
+        body {
+            padding-bottom: 70px; /* Platz für die untere Navigation */
+        }
+    }
+</style>
+{% endblock %}

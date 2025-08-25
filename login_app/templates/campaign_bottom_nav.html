@@ -1,0 +1,69 @@
+<style>
+    .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        display: flex;
+        justify-content: space-around;
+        padding: 10px 0;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+    .nav-item {
+        text-align: center;
+        color: #666;
+        text-decoration: none;
+        flex: 1;
+    }
+    .nav-item.active {
+        color: var(--primary-color);
+    }
+    .nav-icon {
+        font-size: 1.5em;
+    }
+    .nav-label {
+        font-size: 0.7em;
+    }
+</style>
+
+<!-- Bottom Navigation -->
+<div class="bottom-nav">
+    <!-- Home -->
+    <a href="{{ url_for('view_campaign', campaign_id=campaign.id) }}" class="nav-item {% if request.endpoint == 'view_campaign' %}active{% endif %}">
+        <div class="nav-icon"><i class="fas fa-home"></i></div>
+        <div class="nav-label">Home</div>
+    </a>
+
+    <!-- Chat -->
+    <a href="{{ url_for('chat', campaign_id=campaign.id) }}" class="nav-item {% if request.endpoint == 'chat' %}active{% endif %}">
+        <div class="nav-icon"><i class="fas fa-comments"></i></div>
+        <div class="nav-label">Chat</div>
+    </a>
+    
+    <!-- NPC -->
+    <a href="{{ url_for('npcs', campaign_id=campaign.id) }}" class="nav-item {% if request.endpoint == 'npcs' %}active{% endif %}">
+        <div class="nav-icon"><i class="fas fa-dragon"></i></div>
+        <div class="nav-label">NPCs</div>
+    </a>
+    
+    <!-- Quests -->
+    <a href="{{ url_for('quests', campaign_id=campaign.id) }}" class="nav-item {% if request.endpoint == 'quests' or request.endpoint == 'view_quest' or request.endpoint == 'new_quest' or request.endpoint == 'edit_quest' %}active{% endif %}">
+        <div class="nav-icon"><i class="fas fa-scroll"></i></div>
+        <div class="nav-label">Quests</div>
+    </a>
+    
+    <!-- Spieler (for DM) / Charakter (for players) -->
+    {% if is_dm %}
+    <a href="{{ url_for('manage_players', campaign_id=campaign.id) }}" class="nav-item {% if request.endpoint == 'manage_players' %}active{% endif %}">
+        <div class="nav-icon"><i class="fas fa-users"></i></div>
+        <div class="nav-label">Spieler</div>
+    </a>
+    {% else %}
+    <a href="{{ url_for('manage_character', campaign_id=campaign.id) }}" class="nav-item {% if request.endpoint == 'manage_character' %}active{% endif %}">
+        <div class="nav-icon"><i class="fas fa-user-edit"></i></div>
+        <div class="nav-label">Charakter</div>
+    </a>
+    {% endif %}
+</div>

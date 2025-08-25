@@ -1,0 +1,613 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <!-- NPC Image -->
+            <div class="card mb-4">
+                <style>
+                    .npc-portrait {
+                        position: relative;
+                        width: 100%;
+                        aspect-ratio: 3 / 4;
+                        background: #f8f9fa;
+                        border-bottom: 1px solid #dee2e6;
+                        overflow: hidden;
+                    }
+
+                    .npc-portrait img {
+                        width: 100%;
+                        height: 100%;
+                        object-fit: contain; /* show full image, no cropping */
+                        display: block;
+                    }
+                    .npc-name-plaque {
+                        position: absolute;
+                        left: 0;
+                        bottom: 0;
+                        width: 100%;
+                        padding: 8px 12px;
+                        text-align: center;
+                        color: #fff;
+                        font-weight: 700;
+                        letter-spacing: .5px;
+                        text-transform: uppercase;
+                        text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+                        background: linear-gradient(180deg, #8c2f1b 0%, #6e2415 100%);
+                        border-top: 2px solid #d9a441;
+                        border-bottom: 2px solid #d9a441;
+                        box-shadow: 0 2px 6px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.2);
+                        z-index: 2;
+                    }
+                    /* Tag style pills (brown with gold border) */
+                    .tag-pill {
+                        display: inline-block;
+                        padding: 1px 8px;
+                        font-size: 0.8rem;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: .4px;
+                        color: #fff;
+                        background: linear-gradient(180deg, #8c2f1b 0%, #6e2415 100%);
+                        border: 1.5px solid #d9a441;
+                        border-radius: 2px;
+                        box-shadow: 0 1px 2px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.2);
+                        margin-right: .4rem;
+                        user-select: none;
+                        white-space: nowrap;
+                    }
+                    .tag-row { display: flex; flex-wrap: nowrap; justify-content: center; align-items: center; }
+                    /* Tag cloud under basic info: wraps automatically */
+                    .tag-cloud { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem .4rem; }
+                    .tag-cloud .tag-pill { margin-right: 0; }
+                </style>
+
+                <div class="npc-portrait">
+                    {% if npc.image == 'default_npc.jpg' %}
+                        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#999; font-size:4rem;">
+                            <i class="fas fa-user"></i>
+                        </div>
+                    {% else %}
+                        <img src="{{ url_for('static', filename='npc_images/' + npc.image) }}" alt="{{ npc.name }}">
+                    {% endif %}
+                    <div class="npc-name-plaque">{{ npc.name }}</div>
+                </div>
+
+                <div class="card-body text-center">
+                    {% if npc.race or npc.age or npc.gender %}
+                        <div class="tag-row">
+                            {% if npc.race %}<span class="tag-pill">{{ npc.race }}</span>{% endif %}
+                            {% if npc.age %}<span class="tag-pill">{{ npc.age }} Jahre</span>{% endif %}
+                            {% if npc.gender %}<span class="tag-pill">{{ npc.gender }}</span>{% endif %}
+                        </div>
+                    {% endif %}
+                    {% if npc.tags %}
+                        <div class="tag-cloud mt-2" id="npc-tags-cloud">
+                            {% for raw in npc.tags.split(',') %}
+                                {% set t = raw.strip() %}
+                                {% if t %}
+                                    <span class="tag-pill">{{ t }}</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
+                    {% if is_dm or current_user.id == npc.created_by %}
+                        <div class="btn-group w-100">
+                            <a href="{{ url_for('edit_npc', campaign_id=campaign.id, npc_id=npc.id) }}" class="btn btn-outline-primary">
+                                <i class="fas fa-edit"></i> Bearbeiten
+                            </a>
+                            <a href="{{ url_for('npcs', campaign_id=campaign.id) }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i> Zurück
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="npcTabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="appearance-tab" data-bs-toggle="tab" href="#appearance" role="tab">Aussehen</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="personality-tab" data-bs-toggle="tab" href="#personality" role="tab">Persönlichkeit</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="background-tab" data-bs-toggle="tab" href="#background" role="tab">Hintergrund</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="notes-tab" data-bs-toggle="tab" href="#notes" role="tab">Notizen</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="tags-tab" data-bs-toggle="tab" href="#tags" role="tab">Tags</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="npcTabsContent">
+                        <!-- Appearance Tab -->
+                        <div class="tab-pane fade show active" id="appearance" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="mb-0">Aussehen</h5>
+                                {% if is_dm or current_user.id == npc.created_by %}
+                                <button id="edit-appearance-btn" class="btn btn-sm btn-outline-primary" title="Aussehen bearbeiten">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div id="appearance-content" class="mb-2">
+                                {% if npc.appearance %}
+                                    {{ npc.appearance|replace('\n', '<br>')|safe }}
+                                {% else %}
+                                    <p class="text-muted mb-0">Keine Informationen zum Aussehen hinterlegt.</p>
+                                {% endif %}
+                            </div>
+                            {% if is_dm or current_user.id == npc.created_by %}
+                            <div id="edit-appearance-form" style="display:none;">
+                                <form id="appearance-form">
+                                    <div class="form-group">
+                                        <textarea class="form-control" id="appearance-textarea" rows="5" name="appearance">{{ npc.appearance or '' }}</textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
+                                    <button type="button" id="cancel-appearance" class="btn btn-outline-secondary btn-sm">Abbrechen</button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Personality Tab -->
+                        <div class="tab-pane fade" id="personality" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="mb-0">Persönlichkeit</h5>
+                                {% if is_dm or current_user.id == npc.created_by %}
+                                <button id="edit-personality-btn" class="btn btn-sm btn-outline-primary" title="Persönlichkeit bearbeiten">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div id="personality-content" class="mb-2">
+                                {% if npc.personality %}
+                                    {{ npc.personality|replace('\n', '<br>')|safe }}
+                                {% else %}
+                                    <p class="text-muted mb-0">Keine Informationen zur Persönlichkeit hinterlegt.</p>
+                                {% endif %}
+                            </div>
+                            {% if is_dm or current_user.id == npc.created_by %}
+                            <div id="edit-personality-form" style="display:none;">
+                                <form id="personality-form">
+                                    <div class="form-group">
+                                        <textarea class="form-control" id="personality-textarea" rows="5" name="personality">{{ npc.personality or '' }}</textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
+                                    <button type="button" id="cancel-personality" class="btn btn-outline-secondary btn-sm">Abbrechen</button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Background Tab -->
+                        <div class="tab-pane fade" id="background" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="mb-0">Hintergrund</h5>
+                                {% if is_dm or current_user.id == npc.created_by %}
+                                <button id="edit-background-btn" class="btn btn-sm btn-outline-primary" title="Hintergrund bearbeiten">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div id="background-content" class="mb-2">
+                                {% if npc.background %}
+                                    {{ npc.background|replace('\n', '<br>')|safe }}
+                                {% else %}
+                                    <p class="text-muted mb-0">Keine Hintergrundinformationen hinterlegt.</p>
+                                {% endif %}
+                            </div>
+                            {% if is_dm or current_user.id == npc.created_by %}
+                            <div id="edit-background-form" style="display:none;">
+                                <form id="background-form">
+                                    <div class="form-group">
+                                        <textarea class="form-control" id="background-textarea" rows="5" name="background">{{ npc.background or '' }}</textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
+                                    <button type="button" id="cancel-background" class="btn btn-outline-secondary btn-sm">Abbrechen</button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Notes Tab -->
+                        <div class="tab-pane fade" id="notes" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="mb-0">Notizen</h5>
+                                {% if current_user.id == campaign.dm_id or current_user in campaign.players %}
+                                <button id="edit-notes-btn" class="btn btn-sm btn-outline-primary" title="Notizen bearbeiten">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div id="notes-content" class="mb-2">
+                                {% if npc.notes %}
+                                    {{ npc.notes|replace('\n', '<br>')|safe }}
+                                {% else %}
+                                    <p class="text-muted mb-0">Keine Notizen vorhanden.</p>
+                                {% endif %}
+                            </div>
+                            {% if current_user.id == campaign.dm_id or current_user in campaign.players %}
+                            <div id="edit-notes-form" style="display: none;">
+                                <form id="notes-form">
+                                    <div class="form-group">
+                                        <textarea class="form-control" id="notes-textarea" rows="5" name="notes">{{ npc.notes or '' }}</textarea>
+                                        <small class="form-text text-muted">Notizen sind für alle Spieler sichtbar und bearbeitbar.</small>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
+                                    <button type="button" id="cancel-edit" class="btn btn-outline-secondary btn-sm">Abbrechen</button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Tags Tab -->
+                        <div class="tab-pane fade" id="tags" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="mb-0">Tags</h5>
+                            </div>
+                            {% if is_dm or current_user.id == npc.created_by %}
+                            <div class="input-group mb-2">
+                                <input type="text" id="tag-input" class="form-control" placeholder="Tag eingeben und Enter/Komma drücken" />
+                                <button class="btn btn-outline-secondary" type="button" id="add-tag-btn">Hinzufügen</button>
+                            </div>
+                            <small class="text-muted d-block mb-2">Zum Entfernen auf einen Tag klicken. Änderungen werden automatisch gespeichert.</small>
+                            {% endif %}
+                            <div id="tags-list" class="mb-2">
+                                {% if npc.tags %}
+                                    {% for raw in npc.tags.split(',') %}
+                                        {% set t = raw.strip() %}
+                                        {% if t %}
+                                            <span class="tag-pill">{{ t }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-muted mb-0">Keine Tags vorhanden.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+    
+    {# Bottom Navigation #}
+    {% include 'campaign_bottom_nav.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle notes edit form
+    const editBtn = document.getElementById('edit-notes-btn');
+    const editForm = document.getElementById('edit-notes-form');
+    const notesContent = document.getElementById('notes-content');
+    const notesForm = document.getElementById('notes-form');
+    const cancelBtn = document.getElementById('cancel-edit');
+    
+    if (editBtn && editForm) {
+        editBtn.addEventListener('click', function() {
+            editBtn.style.display = 'none';
+            notesContent.style.display = 'none';
+            editForm.style.display = 'block';
+        });
+        
+        cancelBtn.addEventListener('click', function() {
+            editBtn.style.display = 'inline-block';
+            notesContent.style.display = 'block';
+            editForm.style.display = 'none';
+        });
+        
+        notesForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(notesForm);
+            const notes = formData.get('notes');
+            
+            fetch(`/campaign/{{ campaign.id }}/npc/{{ npc.id }}/update_notes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ notes: notes })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the displayed notes
+                    notesContent.innerHTML = notes ? notes.replace(/\n/g, '<br>') : '<p class="text-muted">Keine Notizen vorhanden.</p>';
+                    
+                    // Show the notes and hide the form
+                    editBtn.style.display = 'inline-block';
+                    notesContent.style.display = 'block';
+                    editForm.style.display = 'none';
+                    
+                    // Show success message
+                    const alert = document.createElement('div');
+                    alert.className = 'alert alert-success alert-dismissible fade show';
+                    alert.role = 'alert';
+                    alert.innerHTML = `
+                        Notizen erfolgreich aktualisiert.
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    `;
+                    
+                    const container = document.querySelector('.container.mt-4');
+                    container.insertBefore(alert, container.firstChild);
+                    
+                    // Auto-dismiss after 3 seconds
+                    setTimeout(() => {
+                        const bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    }, 3000);
+                } else {
+                    alert('Fehler beim Speichern der Notizen: ' + (data.error || 'Unbekannter Fehler'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Fehler beim Speichern der Notizen. Bitte versuche es erneut.');
+            });
+        });
+    }
+    
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Inline edit for appearance (DM or creator only)
+    const appearanceEditBtn = document.getElementById('edit-appearance-btn');
+    const appearanceFormWrap = document.getElementById('edit-appearance-form');
+    const appearanceContent = document.getElementById('appearance-content');
+    const appearanceForm = document.getElementById('appearance-form');
+    const appearanceCancel = document.getElementById('cancel-appearance');
+    const appearanceTextarea = document.getElementById('appearance-textarea');
+
+    if (appearanceEditBtn && appearanceFormWrap && appearanceContent && appearanceForm && appearanceCancel && appearanceTextarea) {
+        appearanceEditBtn.addEventListener('click', function() {
+            appearanceEditBtn.style.display = 'none';
+            appearanceContent.style.display = 'none';
+            appearanceFormWrap.style.display = 'block';
+            appearanceTextarea.focus();
+        });
+
+        appearanceCancel.addEventListener('click', function() {
+            appearanceEditBtn.style.display = 'inline-block';
+            appearanceContent.style.display = 'block';
+            appearanceFormWrap.style.display = 'none';
+        });
+
+        appearanceForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const appearance = appearanceTextarea.value;
+            fetch(`/campaign/{{ campaign.id }}/npc/{{ npc.id }}/update_appearance`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ appearance })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    appearanceContent.innerHTML = appearance ? appearance.replace(/\n/g, '<br>') : '<p class="text-muted mb-0">Keine Informationen zum Aussehen hinterlegt.</p>';
+                    appearanceEditBtn.style.display = 'inline-block';
+                    appearanceContent.style.display = 'block';
+                    appearanceFormWrap.style.display = 'none';
+                } else {
+                    alert('Fehler beim Speichern des Aussehens: ' + (data.error || 'Unbekannter Fehler'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Fehler beim Speichern des Aussehens. Bitte versuche es erneut.');
+            });
+        });
+    }
+
+    // Inline edit for personality
+    const persEditBtn = document.getElementById('edit-personality-btn');
+    const persFormWrap = document.getElementById('edit-personality-form');
+    const persContent = document.getElementById('personality-content');
+    const persForm = document.getElementById('personality-form');
+    const persCancel = document.getElementById('cancel-personality');
+    const persTextarea = document.getElementById('personality-textarea');
+
+    if (persEditBtn && persFormWrap && persContent && persForm && persCancel && persTextarea) {
+        persEditBtn.addEventListener('click', function() {
+            persEditBtn.style.display = 'none';
+            persContent.style.display = 'none';
+            persFormWrap.style.display = 'block';
+            persTextarea.focus();
+        });
+
+        persCancel.addEventListener('click', function() {
+            persEditBtn.style.display = 'inline-block';
+            persContent.style.display = 'block';
+            persFormWrap.style.display = 'none';
+        });
+
+        persForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const personality = persTextarea.value;
+            fetch(`/campaign/{{ campaign.id }}/npc/{{ npc.id }}/update_personality`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ personality })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    persContent.innerHTML = personality ? personality.replace(/\n/g, '<br>') : '<p class="text-muted mb-0">Keine Informationen zur Persönlichkeit hinterlegt.</p>';
+                    persEditBtn.style.display = 'inline-block';
+                    persContent.style.display = 'block';
+                    persFormWrap.style.display = 'none';
+                } else {
+                    alert('Fehler beim Speichern der Persönlichkeit: ' + (data.error || 'Unbekannter Fehler'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Fehler beim Speichern der Persönlichkeit. Bitte versuche es erneut.');
+            });
+        });
+    }
+
+    // Inline edit for background
+    const bgEditBtn = document.getElementById('edit-background-btn');
+    const bgFormWrap = document.getElementById('edit-background-form');
+    const bgContent = document.getElementById('background-content');
+    const bgForm = document.getElementById('background-form');
+    const bgCancel = document.getElementById('cancel-background');
+    const bgTextarea = document.getElementById('background-textarea');
+
+    if (bgEditBtn && bgFormWrap && bgContent && bgForm && bgCancel && bgTextarea) {
+        bgEditBtn.addEventListener('click', function() {
+            bgEditBtn.style.display = 'none';
+            bgContent.style.display = 'none';
+            bgFormWrap.style.display = 'block';
+            bgTextarea.focus();
+        });
+
+        bgCancel.addEventListener('click', function() {
+            bgEditBtn.style.display = 'inline-block';
+            bgContent.style.display = 'block';
+            bgFormWrap.style.display = 'none';
+        });
+
+        bgForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const background = bgTextarea.value;
+            fetch(`/campaign/{{ campaign.id }}/npc/{{ npc.id }}/update_background`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ background })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bgContent.innerHTML = background ? background.replace(/\n/g, '<br>') : '<p class="text-muted mb-0">Keine Hintergrundinformationen hinterlegt.</p>';
+                    bgEditBtn.style.display = 'inline-block';
+                    bgContent.style.display = 'block';
+                    bgFormWrap.style.display = 'none';
+                } else {
+                    alert('Fehler beim Speichern des Hintergrunds: ' + (data.error || 'Unbekannter Fehler'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Fehler beim Speichern des Hintergrunds. Bitte versuche es erneut.');
+            });
+        });
+    }
+
+    // ===== Tags add/remove with auto-save =====
+    const tagInputEl = document.getElementById('tag-input');
+    const addTagBtnEl = document.getElementById('add-tag-btn');
+    const tagsListEl = document.getElementById('tags-list');
+    const topTagsCloudEl = document.getElementById('npc-tags-cloud');
+    const canEditTags = !!(tagInputEl && addTagBtnEl); // permission inferred from presence of input
+
+    function getCurrentTagsFromDOM() {
+        const tags = [];
+        if (!tagsListEl) return tags;
+        tagsListEl.querySelectorAll('.tag-pill').forEach(el => {
+            const t = (el.textContent || '').trim();
+            if (t) tags.push(t);
+        });
+        return tags;
+    }
+
+    function renderTagsList(tags) {
+        if (!tagsListEl) return;
+        if (!tags.length) {
+            tagsListEl.innerHTML = '<p class="text-muted mb-0">Keine Tags vorhanden.</p>';
+            return;
+        }
+        tagsListEl.innerHTML = tags.map(t => `<span class="tag-pill" ${canEditTags ? 'data-removable="1"' : ''}>${t}</span>`).join(' ');
+    }
+
+    function renderTopCloud(tagsStr) {
+        if (!topTagsCloudEl) return;
+        const parts = (tagsStr || '').split(',').map(s => s.trim()).filter(Boolean);
+        topTagsCloudEl.innerHTML = parts.length ? parts.map(p => `<span class="tag-pill">${p}</span>`).join(' ') : '';
+    }
+
+    function saveTags(tags) {
+        return fetch(`/campaign/{{ campaign.id }}/npc/{{ npc.id }}/update_tags`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tags })
+        }).then(r => r.json());
+    }
+
+    function addTagFromInput() {
+        if (!tagInputEl) return;
+        const v = (tagInputEl.value || '').trim();
+        if (!v) return;
+        let current = getCurrentTagsFromDOM();
+        if (current.some(t => t.toLowerCase() === v.toLowerCase())) {
+            tagInputEl.value = '';
+            return;
+        }
+        current.push(v);
+        // optimistic render
+        renderTagsList(current);
+        tagInputEl.value = '';
+        saveTags(current).then(data => {
+            if (!data.success) throw new Error(data.error || 'Fehler beim Speichern');
+            renderTopCloud(data.tags || '');
+        }).catch(err => {
+            console.error(err);
+            alert('Fehler beim Speichern der Tags: ' + err.message);
+            // reload from server state by reverting optimistic UI: simplest is to remove just-added tag
+            const reverted = current.filter(t => t.toLowerCase() !== v.toLowerCase());
+            renderTagsList(reverted);
+        });
+    }
+
+    if (canEditTags) {
+        // ensure existing tags become removable by re-rendering with data attribute
+        renderTagsList(getCurrentTagsFromDOM());
+        addTagBtnEl.addEventListener('click', addTagFromInput);
+        tagInputEl.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                addTagFromInput();
+            }
+        });
+        // delegate click to remove
+        tagsListEl && tagsListEl.addEventListener('click', e => {
+            const target = e.target.closest('.tag-pill[data-removable="1"]');
+            if (!target) return;
+            const txt = (target.textContent || '').trim();
+            let current = getCurrentTagsFromDOM().filter(t => t.toLowerCase() !== txt.toLowerCase());
+            renderTagsList(current);
+            saveTags(current).then(data => {
+                if (!data.success) throw new Error(data.error || 'Fehler beim Speichern');
+                renderTopCloud(data.tags || '');
+            }).catch(err => {
+                console.error(err);
+                alert('Fehler beim Speichern der Tags: ' + err.message);
+                // revert removal
+                current.push(txt);
+                renderTagsList(current);
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

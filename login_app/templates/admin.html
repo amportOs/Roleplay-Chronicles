@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1000px;">
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <div>
+            <h1 style="margin: 0 0 5px 0; color: var(--text-color);">
+                <i class="fas fa-users-cog"></i> Admin Panel
+            </h1>
+            <p style="margin: 0; color: #666; font-size: 1.1em;">
+                Manage user registrations and system settings
+            </p>
+        </div>
+        <a href="{{ url_for('home') }}" class="btn" style="background-color: var(--primary-color);">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Pending Approvals Section -->
+    <div class="card" style="margin-bottom: 30px;">
+        <div class="card-header" style="border-bottom: 1px solid #eee; padding: 15px 20px;">
+            <h2 style="margin: 0; color: var(--text-color); font-size: 1.5em;">
+                <i class="fas fa-user-clock"></i> Pending User Approvals
+                {% if pending_users %}
+                    <span class="badge" style="background-color: var(--accent-color); color: white; 
+                                            border-radius: 12px; padding: 2px 8px; font-size: 0.7em; 
+                                            position: relative; top: -2px; margin-left: 8px;">
+                        {{ pending_users|length }}
+                    </span>
+                {% endif %}
+            </h2>
+        </div>
+        
+        <div class="card-body" style="padding: 0;">
+            {% if pending_users %}
+                {% for user in pending_users %}
+                    <div class="user-card" style="display: flex; justify-content: space-between; align-items: center; 
+                                              padding: 15px 20px; border-bottom: 1px solid #f5f5f5;
+                                              transition: background-color 0.2s ease;">
+                        <div style="display: flex; align-items: center;">
+                            <div style="width: 50px; height: 50px; border-radius: 50%; background: #eee; 
+                                      display: flex; align-items: center; justify-content: center; 
+                                      margin-right: 15px; font-weight: bold; color: #666; font-size: 1.2em;">
+                                {{ user.username[0]|upper }}
+                            </div>
+                            <div>
+                                <h3 style="margin: 0 0 5px 0; color: var(--text-color);">
+                                    {{ user.username }}
+                                </h3>
+                                <div style="color: #888; font-size: 0.9em;">
+                                    <i class="far fa-calendar-alt"></i> 
+                                    Registered {{ user.created_at.strftime('%B %d, %Y') }}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="white-space: nowrap;">
+                            <form action="{{ url_for('approve_user', user_id=user.id) }}" method="POST" style="display: inline-block; margin-right: 8px;">
+                                <button type="submit" class="btn" style="background-color: #4CAF50;">
+                                    <i class="fas fa-check"></i> Approve
+                                </button>
+                            </form>
+                            <form action="{{ url_for('reject_user', user_id=user.id) }}" method="POST" style="display: inline-block;">
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-times"></i> Reject
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 40px 20px; color: #888;">
+                    <i class="far fa-check-circle" style="font-size: 3em; margin-bottom: 15px; opacity: 0.5;"></i>
+                    <p style="margin: 10px 0 0 0; font-size: 1.1em;">
+                        No pending user approvals. All caught up!
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- System Information Section -->
+    <div class="card">
+        <div class="card-header" style="border-bottom: 1px solid #eee; padding: 15px 20px;">
+            <h2 style="margin: 0; color: var(--text-color); font-size: 1.5em;">
+                <i class="fas fa-info-circle"></i> System Information
+            </h2>
+        </div>
+        <div style="padding: 20px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">
+                <div class="stat-card" style="background: #f8f9fa; border-radius: 8px; padding: 15px; text-align: center;">
+                    <div style="font-size: 2em; font-weight: bold; color: var(--primary-color);">
+                        {{ total_users }}
+                    </div>
+                    <div style="color: #666; font-size: 0.9em;">
+                        <i class="fas fa-users"></i> Total Users
+                    </div>
+                </div>
+                <div class="stat-card" style="background: #f8f9fa; border-radius: 8px; padding: 15px; text-align: center;">
+                    <div style="font-size: 2em; font-weight: bold; color: #4CAF50;">
+                        {{ active_users }}
+                    </div>
+                    <div style="color: #666; font-size: 0.9em;">
+                        <i class="fas fa-user-check"></i> Active Users
+                    </div>
+                </div>
+                <div class="stat-card" style="background: #f8f9fa; border-radius: 8px; padding: 15px; text-align: center;">
+                    <div style="font-size: 2em; font-weight: bold; color: #FFC107;">
+                        {{ total_posts }}
+                    </div>
+                    <div style="color: #666; font-size: 0.9em;">
+                        <i class="far fa-comment-alt"></i> Total Posts
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .user-card:hover {
+        background-color: #f9f9f9;
+    }
+    .stat-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .badge {
+        display: inline-block;
+        min-width: 10px;
+        padding: 3px 7px;
+        font-size: 12px;
+        font-weight: bold;
+        line-height: 1;
+        color: #fff;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        background-color: #777;
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}

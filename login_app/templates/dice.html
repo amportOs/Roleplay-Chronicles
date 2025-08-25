@@ -1,0 +1,645 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0">Würfel</h4>
+                </div>
+                <div class="card-body p-0">
+                    <div class="d-flex flex-wrap p-3" id="diceTray">
+                        <button class="dice-btn" data-sides="4" title="W4">
+                            <i class="fas fa-dice-d4"></i>
+                            <span>W4</span>
+                        </button>
+                        <button class="dice-btn" data-sides="6" title="W6">
+                            <i class="fas fa-dice"></i>
+                            <span>W6</span>
+                        </button>
+                        <button class="dice-btn" data-sides="8" title="W8">
+                            <i class="fas fa-dice-d8"></i>
+                            <span>W8</span>
+                        </button>
+                        <button class="dice-btn" data-sides="10" title="W10">
+                            <i class="fas fa-dice-d10"></i>
+                            <span>W10</span>
+                        </button>
+                        <button class="dice-btn" data-sides="12" title="W12">
+                            <i class="fas fa-dice-d12"></i>
+                            <span>W12</span>
+                        </button>
+                        <button class="dice-btn" data-sides="20" title="W20">
+                            <i class="fas fa-dice-d20"></i>
+                            <span>W20</span>
+                        </button>
+                        <button class="dice-btn" data-sides="100" title="W100">
+                            <i class="fas fa-percent"></i>
+                            <span>W100</span>
+                        </button>
+                    </div>
+
+                    <div class="p-3 border-top">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0">Würfelpool</h5>
+                            <button id="clearDice" class="btn btn-sm btn-outline-secondary">Leeren</button>
+                        </div>
+                        
+                        <div id="dicePool" class="mb-3">
+                            <p class="text-muted text-center py-3 mb-0" id="noDiceMessage">Keine Würfel ausgewählt</p>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <span class="font-weight-bold me-2">Modifikator:</span>
+                                <div class="input-group input-group-sm" style="width: 100px;">
+                                    <button class="btn btn-outline-secondary" type="button" id="decrementMod">-</button>
+                                    <input type="number" class="form-control text-center" id="modifier" value="0">
+                                    <button class="btn btn-outline-secondary" type="button" id="incrementMod">+</button>
+                                </div>
+                            </div>
+                            <button id="rollButton" class="btn btn-primary" disabled>
+                                <i class="fas fa-dice me-1"></i> Würfeln
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Letzte Würfe</h5>
+                    <button id="clearHistory" class="btn btn-sm btn-outline-danger">
+                        <i class="fas fa-trash-alt me-1"></i> Alle löschen
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <ul id="rollHistory" class="list-group list-group-flush">
+                        <!-- Roll history will be added here -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.dice-btn {
+    width: 80px;
+    height: 80px;
+    margin: 5px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.dice-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-color: #0d6efd;
+}
+
+.dice-btn i {
+    font-size: 2rem;
+    margin-bottom: 5px;
+    color: #0d6efd;
+}
+
+.dice-btn span {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.die-in-pool {
+    display: inline-flex;
+    align-items: center;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px;
+    font-size: 0.9rem;
+}
+
+.die-remove {
+    color: #dc3545;
+    margin-left: 5px;
+    cursor: pointer;
+}
+
+#modifier {
+    max-width: 60px;
+    text-align: center;
+}
+</style>
+
+<script>
+let selectedDice = [];
+let rollHistory = [];
+const maxHistory = 10;
+
+// Initialize event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Add dice to pool when clicked
+    document.querySelectorAll('.dice-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const sides = parseInt(btn.dataset.sides);
+            addDieToPool(sides);
+        });
+    });
+
+    // Roll button
+    document.getElementById('rollButton').addEventListener('click', rollDice);
+    
+    // Clear button
+    document.getElementById('clearDice').addEventListener('click', clearDicePool);
+    
+    // Modifier controls
+    document.getElementById('incrementMod').addEventListener('click', () => updateModifier(1));
+    document.getElementById('decrementMod').addEventListener('click', () => updateModifier(-1));
+    document.getElementById('modifier').addEventListener('change', (e) => {
+        const value = parseInt(e.target.value) || 0;
+        e.target.value = value;
+    });
+});
+
+// Add a die to the pool
+function addDieToPool(sides) {
+    const existingDie = selectedDice.find(die => die.sides === sides);
+    if (existingDie) {
+        existingDie.quantity++;
+    } else {
+        selectedDice.push({ sides, quantity: 1 });
+    }
+    updateDicePoolDisplay();
+    updateRollButton();
+}
+
+// Remove a die from the pool
+function removeDieFromPool(index) {
+    if (selectedDice[index].quantity > 1) {
+        selectedDice[index].quantity--;
+    } else {
+        selectedDice.splice(index, 1);
+    }
+    updateDicePoolDisplay();
+    updateRollButton();
+}
+
+// Clear the dice pool
+function clearDicePool() {
+    selectedDice = [];
+    updateDicePoolDisplay();
+    updateRollButton();
+}
+
+// Update the dice pool display
+function updateDicePoolDisplay() {
+    const poolElement = document.getElementById('dicePool');
+    const noDiceMessage = document.getElementById('noDiceMessage');
+    
+    if (selectedDice.length === 0) {
+        poolElement.innerHTML = '<p class="text-muted text-center py-3 mb-0">Keine Würfel ausgewählt</p>';
+        return;
+    }
+    
+    let html = '<div class="d-flex flex-wrap gap-2">';
+    
+    selectedDice.forEach((die, index) => {
+        html += `
+            <div class="die-in-pool" data-index="${index}" 
+                 onclick="event.stopPropagation(); removeDieFromPool(${index}); if(selectedDice[index] && selectedDice[index].quantity === 0) { selectedDice.splice(index, 1); updateDicePoolDisplay(); }">
+                ${die.quantity}W${die.sides}
+                <span class="die-remove" onclick="event.stopPropagation(); selectedDice.splice(${index}, 1); updateDicePoolDisplay();">&times;</span>
+            </div>`;
+    });
+    
+    html += '</div>';
+    poolElement.innerHTML = html;
+    
+    // Hide the no dice message if it exists
+    if (noDiceMessage) noDiceMessage.style.display = 'none';
+}
+
+// Update the roll button state
+function updateRollButton() {
+    const rollButton = document.getElementById('rollButton');
+    rollButton.disabled = selectedDice.length === 0;
+}
+
+// Roll all dice in the pool
+function rollDice() {
+    if (selectedDice.length === 0) return;
+    
+    const modifier = parseInt(document.getElementById('modifier').value) || 0;
+    let total = 0;
+    let rolls = [];
+    let notation = '';
+    
+    // Roll each die
+    selectedDice.forEach(die => {
+        for (let i = 0; i < die.quantity; i++) {
+            const roll = Math.floor(Math.random() * die.sides) + 1;
+            total += roll;
+            rolls.push({
+                sides: die.sides,
+                value: roll
+            });
+            
+            // Build notation
+            if (notation) notation += ' + ';
+            notation += `d${die.sides}(${roll})`;
+        }
+    });
+    
+    // Add modifier
+    if (modifier !== 0) {
+        total += modifier;
+        notation += ` ${modifier >= 0 ? '+' : ''}${modifier}`;
+    }
+    
+    // Add to history and show results
+    addToHistory(notation, total, rolls, modifier);
+    showResults(rolls, total, modifier);
+}
+
+// Show roll results
+function showResults(rolls, total, modifier) {
+    // The results are now shown through the history display
+    // which is already updated by addToHistory()
+    
+    // Just ensure we have at least one history item to show
+    if (rollHistory.length > 0) {
+        // Find the first history item (most recent) and show its details
+        const firstItem = document.querySelector('#rollHistory .list-group-item');
+        if (firstItem) {
+            // Trigger a click on the first item to show its details
+            firstItem.click();
+        }
+    }
+}
+
+// Format dice notation for display
+function formatDiceNotation(rolls, modifier) {
+    let notation = '';
+    const counts = {};
+    
+    // Count each type of die
+    rolls.forEach(roll => {
+        counts[roll.sides] = (counts[roll.sides] || 0) + 1;
+    });
+    
+    // Build notation string
+    for (const [sides, count] of Object.entries(counts)) {
+        if (notation) notation += ' + ';
+        notation += `${count > 1 ? count : ''}d${sides}`;
+    }
+    
+    // Add modifier if not zero
+    if (modifier !== 0) {
+        notation += ` ${modifier > 0 ? '+' : ''}${modifier}`;
+    }
+    
+    return notation || '0';
+}
+
+// Add roll to history
+function addToHistory(notation, total, rolls, modifier) {
+    rollHistory.unshift({ 
+        notation, 
+        total, 
+        timestamp: new Date(),
+        rolls,
+        modifier
+    });
+    if (rollHistory.length > maxHistory) {
+        rollHistory.pop();
+    }
+    updateHistoryDisplay();
+}
+
+// Format simplified notation (e.g., "2W4 + W6 + W20")
+function getSimplifiedNotation(rolls) {
+    const counts = {};
+    
+    // Count each type of die
+    rolls.forEach(roll => {
+        counts[roll.sides] = (counts[roll.sides] || 0) + 1;
+    });
+    
+    // Build notation string
+    return Object.entries(counts)
+        .sort((a, b) => a[0] - b[0]) // Sort by die size
+        .map(([sides, count]) => `${count > 1 ? count : ''}W${sides}`)
+        .join(' + ');
+}
+
+// Format detailed roll results (e.g., "W4(3+4) + W6(4+5) = 15")
+function formatRollDetails(rolls, modifier) {
+    let details = [];
+    const rollGroups = {};
+    
+    // Group rolls by die type
+    rolls.forEach(roll => {
+        if (!rollGroups[roll.sides]) {
+            rollGroups[roll.sides] = [];
+        }
+        rollGroups[roll.sides].push(roll.value);
+    });
+    
+    // Format each group with individual rolls
+    for (const [sides, values] of Object.entries(rollGroups).sort((a, b) => a[0] - b[0])) {
+        details.push(`W${sides}(${values.join('+')})`);
+    }
+    
+    // Add modifier if not zero
+    if (modifier !== 0) {
+        details.push(`${modifier > 0 ? '+' : ''}${modifier}`);
+    }
+    
+    return details.join(' + ');
+}
+
+// Toggle detailed view of a roll
+function toggleRollDetails(element, index) {
+    const roll = rollHistory[index];
+    const detailsElement = element.querySelector('.roll-details');
+    
+    if (detailsElement) {
+        detailsElement.remove();
+        return;
+    }
+    
+    const details = document.createElement('div');
+    details.className = 'roll-details mt-2 pt-2 border-top';
+    details.style.cursor = 'default';
+    details.onclick = (e) => e.stopPropagation();
+    
+    const rollDetails = formatRollDetails(roll.rolls, roll.modifier);
+    details.innerHTML = `
+        <div class="small text-muted">${rollDetails} = <strong>${roll.total}</strong></div>
+    `;
+    
+    element.appendChild(details);
+}
+
+// Update history display
+function updateHistoryDisplay() {
+    const historyList = document.getElementById('rollHistory');
+    historyList.innerHTML = '';
+    
+    rollHistory.forEach((roll, index) => {
+        const item = document.createElement('li');
+        item.className = 'list-group-item';
+        item.style.cursor = 'pointer';
+        item.onclick = () => toggleRollDetails(item, index);
+        
+        // Show simplified notation by default
+        const simplifiedNotation = getSimplifiedNotation(roll.rolls);
+        const modifierText = roll.modifier !== 0 ? ` ${roll.modifier > 0 ? '+' : ''}${roll.modifier}` : '';
+        
+        item.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div>${simplifiedNotation}${modifierText}</div>
+                </div>
+                <div><span class="badge bg-primary rounded-pill">${roll.total}</span></div>
+            </div>`;
+        historyList.appendChild(item);
+    });
+}
+
+// Update modifier value
+function updateModifier(change) {
+    const input = document.getElementById('modifier');
+    let value = parseInt(input.value) || 0;
+    value += change;
+    input.value = value;
+}
+
+// Clear all history
+function clearAllHistory() {
+    if (confirm('Möchten Sie wirklich alle Würfelergebnisse löschen?')) {
+        rollHistory = [];
+        updateHistoryDisplay();
+    }
+}
+
+// Add event listener for clear history button
+document.getElementById('clearHistory')?.addEventListener('click', clearAllHistory);
+
+// Initialize with some example history
+addToHistory('d20 + 5', 18, [{sides: 20, value: 13}], 5);
+addToHistory('2d6 + 3', 10, [{sides: 6, value: 4}, {sides: 6, value: 3}], 3);
+</script>
+
+<style>
+.dice-icon {
+    font-size: 1.5rem;
+    color: #0d6efd;
+    margin-bottom: 0.25rem;
+}
+
+.die-result {
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 0.5rem;
+    text-align: center;
+    min-width: 60px;
+}
+
+.alert {
+    border-radius: 0 0 0.25rem 0.25rem;
+    margin-bottom: 0;
+    border-top: none;
+}
+
+.card {
+    border: none;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 0.75rem 1.25rem;
+}
+
+.die-badge {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    margin: 0.25rem;
+    min-width: 100px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.die-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.die-badge .remove-die {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    background: #dc3545;
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 10;
+    pointer-events: auto;
+    transition: all 0.2s ease;
+}
+
+.die-badge .remove-die:hover {
+    background: #c82333;
+    transform: scale(1.1);
+}
+
+.quantity-controls {
+    display: flex;
+    align-items: center;
+    margin-left: 10px;
+    background: white;
+    border-radius: 20px;
+    padding: 2px;
+    border: 1px solid #dee2e6;
+}
+
+.quantity-controls button {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border: none;
+    background: #f8f9fa;
+    border-radius: 50%;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+.quantity-controls button:hover {
+    background: #e9ecef;
+}
+
+.quantity-controls .quantity {
+    min-width: 24px;
+    text-align: center;
+    font-weight: bold;
+    color: #495057;
+}
+
+/* Dice result styling */
+.dice-result {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+}
+
+.dice-result .die {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+/* Make sure the remove button is always clickable */
+.remove-die {
+    pointer-events: auto !important;
+}
+
+.btn {
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn:active {
+    transform: scale(0.95);
+}
+
+#diceList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 10px 0;
+    width: 100%;
+}
+
+#selectedDice {
+    width: 100%;
+    margin-bottom: 1rem;
+}
+
+#selectedDice h5 {
+    margin-bottom: 0.5rem;
+    transition: all 0.2s;
+}
+
+.badge .close {
+    font-size: 1.2rem;
+    line-height: 1;
+    padding-left: 8px;
+    opacity: 0.7;
+}
+
+.badge .close:hover {
+    opacity: 1;
+    color: white !important;
+}
+
+#resultsContainer {
+    min-height: 100px;
+}
+
+.border-top {
+    border-top: 1px solid #dee2e6 !important;
+}
+
+/* Animation for dice results */
+@keyframes rollIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#resultsContainer > div {
+    animation: rollIn 0.3s ease-out;
+}
+</style>
+{% endblock %}

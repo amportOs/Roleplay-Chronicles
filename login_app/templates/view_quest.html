@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}{{ quest.title }} - {{ campaign.name }}{% endblock %}
+{% block content %}
+<div class="container mt-3">
+  <style>
+    /* Tag style pills (match NPC tags) */
+    .tag-pill {
+      display: inline-block;
+      padding: 1px 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: #fff;
+      background: linear-gradient(180deg, #8c2f1b 0%, #6e2415 100%);
+      border: 1.5px solid #d9a441;
+      border-radius: 2px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.2);
+      margin-right: .4rem;
+      user-select: none;
+      white-space: nowrap;
+    }
+  </style>
+  <a href="{{ url_for('quests', campaign_id=campaign.id) }}" class="text-decoration-none mb-3 d-inline-block"><i class="fas fa-arrow-left"></i> Zurück zu Quests</a>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start">
+        <h2 class="mb-2" style="display:flex;align-items:center;gap:8px;">
+          {% if quest.is_main %}<span class="badge bg-warning text-dark">Hauptquest</span>{% endif %}
+          {{ quest.title }}
+        </h2>
+        <div class="text-muted small">Erstellt am {{ quest.created_at.strftime('%d.%m.%Y') }}</div>
+      </div>
+
+      <div class="mb-2" id="quest-tags-wrap">
+        <div id="quest-tags-list">
+          {% if quest.tags %}
+            {% for t in quest.tags.split(',') %}
+              {% set tag = t.strip() %}
+              {% if tag %}<span class="tag-pill">{{ tag }}</span>{% endif %}
+            {% endfor %}
+          {% else %}
+            <p class="text-muted mb-0">Keine Tags vorhanden.</p>
+          {% endif %}
+        </div>
+        {% if is_dm or current_user.id == quest.created_by %}
+        <div class="input-group mt-2">
+          <input type="text" id="quest-tag-input" class="form-control" placeholder="Tag eingeben und Enter/Komma drücken" />
+          <button class="btn btn-outline-secondary" type="button" id="quest-add-tag-btn">Hinzufügen</button>
+        </div>
+        <small class="text-muted d-block mt-1">Zum Entfernen auf einen Tag klicken. Änderungen werden automatisch gespeichert.</small>
+        {% endif %}
+      </div>
+
+      <div class="mb-3 text-muted">
+        Status: <strong>{{ 'Offen' if quest.status=='open' else 'Erledigt' }}</strong>
+        · Priorität: <strong>{{ quest.priority|capitalize }}</strong>
+      </div>
+
+      <div>
+        {% if quest.description %}
+          <p style="white-space: pre-line;">{{ quest.description }}</p>
+        {% else %}
+          <p class="text-muted">Keine Beschreibung vorhanden.</p>
+        {% endif %}
+      </div>
+
+      {% if quest.reward %}
+      <hr>
+      <div>
+        <h5>Belohnung</h5>
+        <p style="white-space: pre-line;">{{ quest.reward }}</p>
+      </div>
+      {% endif %}
+
+      <div class="d-flex gap-2 mt-3">
+        <a class="btn btn-outline-secondary" href="{{ url_for('edit_quest', campaign_id=campaign.id, quest_id=quest.id) }}">
+          <i class="fas fa-edit"></i> Bearbeiten
+        </a>
+        {% if quest.status == 'open' %}
+        <form method="post" action="{{ url_for('update_quest_status', campaign_id=campaign.id, quest_id=quest.id) }}">
+          <input type="hidden" name="status" value="done">
+          <button type="submit" class="btn btn-success">
+            <i class="fas fa-check"></i> Als erledigt markieren
+          </button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('update_quest_status', campaign_id=campaign.id, quest_id=quest.id) }}">
+          <input type="hidden" name="status" value="open">
+          <button type="submit" class="btn btn-warning">
+            <i class="fas fa-undo"></i> Wieder öffnen
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const tagInputEl = document.getElementById('quest-tag-input');
+  const addTagBtnEl = document.getElementById('quest-add-tag-btn');
+  const tagsListEl = document.getElementById('quest-tags-list');
+  const canEditTags = !!(tagInputEl && addTagBtnEl);
+
+  function getCurrentTagsFromDOM() {
+    const tags = [];
+    if (!tagsListEl) return tags;
+    tagsListEl.querySelectorAll('.tag-pill').forEach(el => {
+      const t = (el.textContent || '').trim();
+      if (t) tags.push(t);
+    });
+    return tags;
+  }
+
+  function renderTagsList(tags) {
+    if (!tagsListEl) return;
+    if (!tags.length) {
+      tagsListEl.innerHTML = '<p class="text-muted mb-0">Keine Tags vorhanden.</p>';
+      return;
+    }
+    tagsListEl.innerHTML = tags.map(t => `<span class="tag-pill" ${canEditTags ? 'data-removable="1"' : ''}>${t}</span>`).join(' ');
+  }
+
+  function saveTags(tags) {
+    return fetch("{{ url_for('update_quest_tags', campaign_id=campaign.id, quest_id=quest.id) }}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags })
+    }).then(r => r.json());
+  }
+
+  function addTagFromInput() {
+    if (!tagInputEl) return;
+    const v = (tagInputEl.value || '').trim();
+    if (!v) return;
+    let current = getCurrentTagsFromDOM();
+    if (current.some(t => t.toLowerCase() === v.toLowerCase())) {
+      tagInputEl.value = '';
+      return;
+    }
+    current.push(v);
+    renderTagsList(current);
+    tagInputEl.value = '';
+    saveTags(current).then(data => {
+      if (!data.success) throw new Error(data.error || 'Fehler beim Speichern');
+    }).catch(err => {
+      console.error(err);
+      alert('Fehler beim Speichern der Tags: ' + err.message);
+      const reverted = current.filter(t => t.toLowerCase() !== v.toLowerCase());
+      renderTagsList(reverted);
+    });
+  }
+
+  if (canEditTags) {
+    // Ensure existing become removable
+    renderTagsList(getCurrentTagsFromDOM());
+    addTagBtnEl.addEventListener('click', addTagFromInput);
+    tagInputEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        addTagFromInput();
+      }
+    });
+    tagsListEl && tagsListEl.addEventListener('click', e => {
+      const target = e.target.closest('.tag-pill[data-removable="1"]');
+      if (!target) return;
+      const txt = (target.textContent || '').trim();
+      let current = getCurrentTagsFromDOM().filter(t => t.toLowerCase() !== txt.toLowerCase());
+      renderTagsList(current);
+      saveTags(current).then(data => {
+        if (!data.success) throw new Error(data.error || 'Fehler beim Speichern');
+      }).catch(err => {
+        console.error(err);
+        alert('Fehler beim Speichern der Tags: ' + err.message);
+        // revert removal
+        current.push(txt);
+        renderTagsList(current);
+      });
+    });
+  }
+});
+</script>
+{% endblock %}
+
+{% include 'campaign_bottom_nav.html' %}

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Profil - {{ current_user.username }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 100%; padding: 15px 0 80px 0;">
+    <div style="padding: 0 15px;">
+        <!-- Profil bearbeiten Formular -->
+        <div class="card" style="border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div class="card-header" style="background-color: var(--primary-color); color: white; padding: 12px 15px;">
+                <h2 style="margin: 0; font-size: 1.2em;">
+                    <i class="fas fa-user-edit"></i> Profil bearbeiten
+                </h2>
+            </div>
+            <div style="padding: 20px;">
+                <form method="POST" enctype="multipart/form-data">
+                    <div style="margin-bottom: 20px;">
+                        <label for="full_name" style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
+                            Vollständiger Name
+                        </label>
+                        <input type="text" id="full_name" name="full_name" 
+                               value="{{ current_user.full_name or '' }}"
+                               style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1em;">
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label for="email" style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
+                            E-Mail
+                        </label>
+                        <input type="email" id="email" name="email" 
+                               value="{{ current_user.email or '' }}"
+                               style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1em;">
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label for="bio" style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
+                            Über mich
+                        </label>
+                        <textarea id="bio" name="bio" 
+                                  style="width: 100%; min-height: 100px; padding: 12px; border: 1px solid #ddd; 
+                                         border-radius: 8px; resize: vertical; font-size: 1em;">{{ current_user.bio or '' }}</textarea>
+                    </div>
+                    
+                    <div style="margin-bottom: 25px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
+                            Profilbild
+                        </label>
+                        <div style="margin-bottom: 5px;">
+                            <input type="file" id="profile_pic" name="profile_pic" accept="image/*" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <small style="color: #666; font-size: 0.85em;">Leer lassen, um das aktuelle Bild beizubehalten</small>
+                    </div>
+                    
+                    <h3 style="margin: 30px 0 15px 0; color: #333; font-size: 1.1em; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                        Passwort ändern
+                    </h3>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label for="current_password" style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
+                            Aktuelles Passwort
+                        </label>
+                        <input type="password" id="current_password" name="current_password"
+                               style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1em;">
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label for="password" style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
+                            Neues Passwort
+                        </label>
+                        <input type="password" id="password" name="password"
+                               style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1em;">
+                    </div>
+                    
+                    <div style="margin-bottom: 25px;">
+                        <label for="confirm_password" style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">
+                            Neues Passwort bestätigen
+                        </label>
+                        <input type="password" id="confirm_password" name="confirm_password"
+                               style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1em;">
+                    </div>
+                    
+                    <button type="submit" 
+                            class="btn" 
+                            style="background: var(--primary-color); color: white; border: none; padding: 12px 25px; 
+                                   border-radius: 8px; cursor: pointer; width: 100%; font-size: 1.1em;
+                                   transition: all 0.2s ease;">
+                        <i class="fas fa-save"></i> Änderungen speichern
+                    </button>
+                    
+                    {% if current_user.is_admin %}
+                    <!-- Admin Bereich Button -->
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                        <a href="{{ url_for('admin') }}" 
+                           class="btn" 
+                           style="display: block; text-align: center; 
+                                  background: #6c757d; color: white; 
+                                  padding: 10px; border-radius: 8px; text-decoration: none;
+                                  transition: all 0.2s ease; margin-top: 10px;">
+                            <i class="fas fa-user-shield"></i> Admin-Bereich
+                        </a>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Responsive Design Anpassungen */
+    @media (min-width: 768px) {
+        .container {
+            max-width: 600px !important;
+            margin: 0 auto;
+            padding-bottom: 80px !important;
+        }
+        
+        .profile-header {
+            border-radius: 0 0 20px 20px;
+            margin-bottom: 20px;
+        }
+    }
+    
+    /* Button Hover Effekte */
+    .btn {
+        transition: all 0.2s ease;
+    }
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    /* Input Felder */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    textarea {
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="password"]:focus,
+    textarea:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+        outline: none;
+    }
+    
+    /* Date Input Styling */
+    input[type="file"] {
+        cursor: pointer;
+    }
+    
+    input[type="file"]::file-selector-button {
+        background: #f0f0f0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 6px 12px;
+        margin-right: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    input[type="file"]::file-selector-button:hover {
+        background: #e0e0e0;
+    }
+</style>
+{% endblock %}

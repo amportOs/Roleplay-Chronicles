@@ -1,0 +1,370 @@
+{% extends 'base.html' %}
+{% block title %}Termine{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 900px; padding: 15px 10px 110px 10px;">
+  
+
+  {# Flags: Offene Umfragen + Offene Zusagen #}
+  {% set ns = namespace(show_polls=false, show_rsvps=false) %}
+  {% if polls %}
+    {% for poll in polls %}
+      {% set user_has_voted = false %}
+      {% for opt in poll.options %}
+        {% for v in opt.votes %}
+          {% if v.user_id == current_user.id %}
+            {% set user_has_voted = true %}
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+      {% if not user_has_voted %}
+        {% set ns.show_polls = true %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {# Entscheide, ob es Sitzungen ohne Zusage des Nutzers gibt (mit resp_map) #}
+  {% if sessions %}
+    {% for sess in sessions %}
+      {% if not resp_map.get(sess.id) %}
+        {% set ns.show_rsvps = true %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {% if ns.show_rsvps %}
+  <div class="card" id="open-rsvps-card">
+    <h3 style="margin-top:0;">Offene Zusagen</h3>
+    <div id="open-rsvps-grid" style="display:grid; grid-template-columns: 1fr; gap:12px;">
+      {% for sess in sessions %}
+        {% if not resp_map.get(sess.id) %}
+        <div id="open-session-{{ sess.id }}" style="background:#fff; border:1px solid #eee; border-radius:8px; padding:12px;">
+          <!-- Kampagnen-Header: Bild + Name -->
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            {% set _img = campaign_images.get(sess.campaign_id) %}
+            <img alt="Kampagnenbild"
+                 src="{{ _img and url_for('static', filename='campaign_images/' ~ _img) }}"
+                 onerror="this.hidden=true; if(this.nextElementSibling){ this.nextElementSibling.hidden=false; }"
+                 style="width:52px; height:52px; border-radius:8px; object-fit:cover; border:1px solid #ddd;" {% if not _img %}hidden{% endif %} />
+            <div class="dice-fallback" style="width:52px; height:52px; border-radius:8px; border:1px solid #ddd; background:#f0f0f0; display:flex; align-items:center; justify-content:center;" {% if _img %}hidden{% endif %}>
+              <i class="fas fa-dice-d20" style="font-size:1.6em; color:#666;"></i>
+            </div>
+            <div>
+              <div style="font-weight:700; font-size:1.05em; line-height:1.2;">{{ campaign_names.get(sess.campaign_id, 'Kampagne') }}</div>
+              <div style="font-size:0.9em; color:#666;">
+                {{ sess.scheduled_at.strftime('%d.%m.%Y %H:%M') }}{% if sess.location %} • {{ sess.location }}{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Sitzungstitel -->
+          <div style="font-weight:600; margin-bottom:4px;">{{ sess.title or 'Geplante Sitzung' }}</div>
+          {% if sess.notes %}
+            <div style="font-size:0.9em; color:#555; margin-bottom:6px;">{{ sess.notes }}</div>
+          {% endif %}
+
+          <!-- RSVP Controls -->
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:8px 0;">
+            <form class="js-rsvp-form" data-session-id="{{ sess.id }}" method="POST" action="{{ url_for('rsvp_session', campaign_id=sess.campaign_id, session_id=sess.id) }}">
+              <input type="hidden" name="response" value="yes" />
+              <button type="submit" data-response="yes" class="rsvp-btn btn btn-sm btn-outline-success">Ja</button>
+            </form>
+            <form class="js-rsvp-form" data-session-id="{{ sess.id }}" method="POST" action="{{ url_for('rsvp_session', campaign_id=sess.campaign_id, session_id=sess.id) }}">
+              <input type="hidden" name="response" value="maybe" />
+              <button type="submit" data-response="maybe" class="rsvp-btn btn btn-sm btn-outline-warning">Vielleicht</button>
+            </form>
+            <form class="js-rsvp-form" data-session-id="{{ sess.id }}" method="POST" action="{{ url_for('rsvp_session', campaign_id=sess.campaign_id, session_id=sess.id) }}">
+              <input type="hidden" name="response" value="no" />
+              <button type="submit" data-response="no" class="rsvp-btn btn btn-sm btn-outline-danger">Nein</button>
+            </form>
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if ns.show_polls %}
+  <div class="card">
+    <h3 style="margin-top:0;">Offene Umfragen</h3>
+    {% for poll in polls %}
+      {% set user_has_voted = false %}
+      {% for opt in poll.options %}
+        {% for v in opt.votes %}
+          {% if v.user_id == current_user.id %}
+            {% set user_has_voted = true %}
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+      {% if not user_has_voted %}
+      <div id="poll-{{ poll.id }}" style="border:1px solid #eee; border-radius:8px; padding:12px; margin-bottom:12px;">
+        <!-- Kampagnen-Header: Bild + Name -->
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          {% set _pimg = campaign_images.get(poll.campaign_id) %}
+          <img alt="Kampagnenbild"
+               src="{{ _pimg and url_for('static', filename='campaign_images/' ~ _pimg) }}"
+               onerror="this.hidden=true; if(this.nextElementSibling){ this.nextElementSibling.hidden=false; }"
+               style="width:52px; height:52px; border-radius:8px; object-fit:cover; border:1px solid #ddd;" {% if not _pimg %}hidden{% endif %} />
+          <div class="dice-fallback" style="width:52px; height:52px; border-radius:8px; border:1px solid #ddd; background:#f0f0f0; display:flex; align-items:center; justify-content:center;" {% if _pimg %}hidden{% endif %}>
+            <i class="fas fa-dice-d20" style="font-size:1.6em; color:#666;"></i>
+          </div>
+          <div>
+            <div style="font-weight:700; font-size:1.05em; line-height:1.2;">{{ campaign_names.get(poll.campaign_id, 'Kampagne') }}</div>
+            <div style="font-size:0.9em; color:#666;">Termin-Umfrage</div>
+          </div>
+        </div>
+        <!-- Umfragetitel und Notizen -->
+        <div style="font-weight:600;">{{ poll.title or 'Termin-Umfrage' }}</div>
+        {% if poll.notes %}<div style="font-size:0.9em; color:#555; margin-top:4px;">{{ poll.notes }}</div>{% endif %}
+        {% if poll.options %}
+          <div style="display:grid; grid-template-columns:1fr; gap:8px; margin-top:8px;">
+            {% for opt in poll.options %}
+              {% set yes = [] %}
+              {% set maybe = [] %}
+              {% set no = [] %}
+              {% for v in opt.votes %}
+                {% if v.response == 'yes' %}
+                  {% set _ = yes.append(v.user.full_name or v.user.username) %}
+                {% elif v.response == 'maybe' %}
+                  {% set _ = maybe.append(v.user.full_name or v.user.username) %}
+                {% elif v.response == 'no' %}
+                  {% set _ = no.append(v.user.full_name or v.user.username) %}
+                {% endif %}
+              {% endfor %}
+              <div style="border:1px solid #f0f0f0; border-radius:8px; padding:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                  <div>
+                    <div style="font-weight:600;">{{ opt.scheduled_at.strftime('%d.%m.%Y %H:%M') }}{% if opt.location %} • {{ opt.location }}{% endif %}</div>
+                    {% if opt.notes %}<div style="font-size:0.9em; color:#666;">{{ opt.notes }}</div>{% endif %}
+                  </div>
+                  <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                    <form class="js-poll-vote" data-poll-id="{{ poll.id }}" data-option-id="{{ opt.id }}" method="POST" action="{{ url_for('vote_poll_option', campaign_id=poll.campaign_id, poll_id=poll.id) }}">
+                      <input type="hidden" name="option_id" value="{{ opt.id }}" />
+                      <input type="hidden" name="response" value="yes" />
+                      <button type="submit" data-response="yes" class="btn btn-sm btn-outline-success">Ja</button>
+                    </form>
+                    <form class="js-poll-vote" data-poll-id="{{ poll.id }}" data-option-id="{{ opt.id }}" method="POST" action="{{ url_for('vote_poll_option', campaign_id=poll.campaign_id, poll_id=poll.id) }}">
+                      <input type="hidden" name="option_id" value="{{ opt.id }}" />
+                      <input type="hidden" name="response" value="maybe" />
+                      <button type="submit" data-response="maybe" class="btn btn-sm btn-outline-warning">Vielleicht</button>
+                    </form>
+                    <form class="js-poll-vote" data-poll-id="{{ poll.id }}" data-option-id="{{ opt.id }}" method="POST" action="{{ url_for('vote_poll_option', campaign_id=poll.campaign_id, poll_id=poll.id) }}">
+                      <input type="hidden" name="option_id" value="{{ opt.id }}" />
+                      <input type="hidden" name="response" value="no" />
+                      <button type="submit" data-response="no" class="btn btn-sm btn-outline-danger">Nein</button>
+                    </form>
+                  </div>
+                </div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:6px; margin-top:8px;">
+                  <div style="border:1px solid #e6f4ea; background:#f6fff9; border-radius:6px; padding:6px;">
+                    <div style="font-weight:600; color:#2e7d32;">Ja (<span id="poll-{{ poll.id }}-opt-{{ opt.id }}-yes-count">{{ yes|length }}</span>)</div>
+                    <div id="poll-{{ poll.id }}-opt-{{ opt.id }}-yes" style="font-size:0.9em; color:#2e7d32;">{{ yes|join(', ') if yes else '—' }}</div>
+                  </div>
+                  <div style="border:1px solid #fff7e0; background:#fffaf0; border-radius:6px; padding:6px;">
+                    <div style="font-weight:600; color:#b26a00;">Vielleicht (<span id="poll-{{ poll.id }}-opt-{{ opt.id }}-maybe-count">{{ maybe|length }}</span>)</div>
+                    <div id="poll-{{ poll.id }}-opt-{{ opt.id }}-maybe" style="font-size:0.9em; color:#b26a00;">{{ maybe|join(', ') if maybe else '—' }}</div>
+                  </div>
+                  <div style="border:1px solid #fdecea; background:#fff5f5; border-radius:6px; padding:6px;">
+                    <div style="font-weight:600; color:#c62828;">Nein (<span id="poll-{{ poll.id }}-opt-{{ opt.id }}-no-count">{{ no|length }}</span>)</div>
+                    <div id="poll-{{ poll.id }}-opt-{{ opt.id }}-no" style="font-size:0.9em; color:#c62828;">{{ no|join(', ') if no else '—' }}</div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="color:#666;">Keine Optionen vorhanden.</div>
+        {% endif %}
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h3 style="margin-top:0;">Bevorstehende Sitzungen</h3>
+    {% if sessions %}
+      <div style="display:grid; grid-template-columns: 1fr; gap:12px;">
+        {% for sess in sessions %}
+          <div id="session-{{ sess.id }}" style="background:#fff; border:1px solid #eee; border-radius:8px; padding:12px;">
+            <!-- Kampagnen-Header: Bild + Name -->
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+              {% set _img = campaign_images.get(sess.campaign_id) %}
+              <img alt="Kampagnenbild"
+                   src="{{ _img and url_for('static', filename='campaign_images/' ~ _img) }}"
+                   onerror="this.hidden=true; if(this.nextElementSibling){ this.nextElementSibling.hidden=false; }"
+                   style="width:60px; height:60px; border-radius:8px; object-fit:cover; border:1px solid #ddd;" {% if not _img %}hidden{% endif %} />
+              <div class="dice-fallback" style="width:60px; height:60px; border-radius:8px; border:1px solid #ddd; background:#f0f0f0; display:flex; align-items:center; justify-content:center;" {% if _img %}hidden{% endif %}>
+                <i class="fas fa-dice-d20" style="font-size:1.6em; color:#666;"></i>
+              </div>
+              <div>
+                <div style="font-weight:700; font-size:1.05em; line-height:1.2; margin-bottom: 4px;">{{ campaign_names.get(sess.campaign_id, 'Kampagne') }}</div>
+                <div style="font-size:0.9em; color:#666;">
+                  <div><strong>Datum:</strong> {{ sess.scheduled_at.strftime('%d.%m.%Y') }}</div>
+                  <div><strong>Uhrzeit:</strong> {{ sess.scheduled_at.strftime('%H:%M') }}</div>
+                  {% if sess.location %}
+                    <div>
+                      {% if sess.location.startswith(('http://', 'https://', 'www.')) %}
+                        {% set location_url = sess.location if sess.location.startswith(('http://', 'https://')) else 'https://' + sess.location %}
+                        <strong>Ort:</strong> <a href="{{ location_url }}" target="_blank" style="color: #007bff;">Onlinerunde</a>
+                      {% else %}
+                        <strong>Ort:</strong> {{ sess.location }}
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Sitzungstitel und Notizen -->
+            <div style="font-weight:600; margin-bottom:4px;">{{ sess.title or 'Geplante Sitzung' }}</div>
+            {% if sess.notes %}
+              <div style="font-size:0.9em; color:#555; margin-bottom:6px;">{{ sess.notes }}</div>
+            {% endif %}
+
+            <!-- RSVP Controls -->
+            {% set my_resp = resp_map.get(sess.id) %}
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:8px 0;">
+              <form class="js-rsvp-form" data-session-id="{{ sess.id }}" method="POST" action="{{ url_for('rsvp_session', campaign_id=sess.campaign_id, session_id=sess.id) }}">
+                <input type="hidden" name="response" value="yes" />
+                <button type="submit" data-response="yes" class="rsvp-btn btn btn-sm {{ 'btn-success' if my_resp == 'yes' else 'btn-outline-success' }}">Ja</button>
+              </form>
+              <form class="js-rsvp-form" data-session-id="{{ sess.id }}" method="POST" action="{{ url_for('rsvp_session', campaign_id=sess.campaign_id, session_id=sess.id) }}">
+                <input type="hidden" name="response" value="maybe" />
+                <button type="submit" data-response="maybe" class="rsvp-btn btn btn-sm {{ 'btn-warning' if my_resp == 'maybe' else 'btn-outline-warning' }}">Vielleicht</button>
+              </form>
+              <form class="js-rsvp-form" data-session-id="{{ sess.id }}" method="POST" action="{{ url_for('rsvp_session', campaign_id=sess.campaign_id, session_id=sess.id) }}">
+                <input type="hidden" name="response" value="no" />
+                <button type="submit" data-response="no" class="rsvp-btn btn btn-sm {{ 'btn-danger' if my_resp == 'no' else 'btn-outline-danger' }}">Nein</button>
+              </form>
+              <span id="session-{{ sess.id }}-mychoice" style="font-size:0.85em; color:#666;" {% if not my_resp %}hidden{% endif %}>Deine Auswahl: {{ 'Ja' if my_resp=='yes' else ('Vielleicht' if my_resp=='maybe' else 'Nein') }}</span>
+            </div>
+
+            <!-- RSVP Summary -->
+            {% set yes_list = [] %}
+            {% set maybe_list = [] %}
+            {% set no_list = [] %}
+            {% for r in sess.responses %}
+              {% if r.response == 'yes' %}
+                {% set _ = yes_list.append(r.user.full_name or r.user.username) %}
+              {% elif r.response == 'maybe' %}
+                {% set _ = maybe_list.append(r.user.full_name or r.user.username) %}
+              {% elif r.response == 'no' %}
+                {% set _ = no_list.append(r.user.full_name or r.user.username) %}
+              {% endif %}
+            {% endfor %}
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:6px;">
+              <div style="border:1px solid #e6f4ea; background:#f6fff9; border-radius:6px; padding:6px;">
+                <div style="font-weight:600; color:#2e7d32;">Ja (<span id="session-{{ sess.id }}-yes-count">{{ yes_list|length }}</span>)</div>
+                <div id="session-{{ sess.id }}-yes" style="font-size:0.9em; color:#2e7d32;">{{ yes_list|join(', ') if yes_list else '—' }}</div>
+              </div>
+              <div style="border:1px solid #fff7e0; background:#fffaf0; border-radius:6px; padding:6px;">
+                <div style="font-weight:600; color:#b26a00;">Vielleicht (<span id="session-{{ sess.id }}-maybe-count">{{ maybe_list|length }}</span>)</div>
+                <div id="session-{{ sess.id }}-maybe" style="font-size:0.9em; color:#b26a00;">{{ maybe_list|join(', ') if maybe_list else '—' }}</div>
+              </div>
+              <div style="border:1px solid #fdecea; background:#fff5f5; border-radius:6px; padding:6px;">
+                <div style="font-weight:600; color:#c62828;">Nein (<span id="session-{{ sess.id }}-no-count">{{ no_list|length }}</span>)</div>
+                <div id="session-{{ sess.id }}-no" style="font-size:0.9em; color:#c62828;">{{ no_list|join(', ') if no_list else '—' }}</div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="color:#666;">Keine bevorstehenden Sitzungen.</div>
+    {% endif %}
+  </div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// AJAX: RSVP und Poll-Votes ohne Seiten-Reload
+(function(){
+  function toFormData(obj){
+    const fd = new URLSearchParams();
+    Object.entries(obj).forEach(([k,v])=>fd.append(k,v));
+    return fd;
+  }
+  function joinOrDash(arr){ return (arr && arr.length) ? arr.join(', ') : '—'; }
+  function setElText(id, text){ const el = document.getElementById(id); if(el){ el.textContent = text; } }
+  function updateRSVPUI(sessionId, myResponse, yes, maybe, no){
+    setElText(`session-${sessionId}-yes-count`, yes.length);
+    setElText(`session-${sessionId}-maybe-count`, maybe.length);
+    setElText(`session-${sessionId}-no-count`, no.length);
+    setElText(`session-${sessionId}-yes`, joinOrDash(yes));
+    setElText(`session-${sessionId}-maybe`, joinOrDash(maybe));
+    setElText(`session-${sessionId}-no`, joinOrDash(no));
+    const my = document.getElementById(`session-${sessionId}-mychoice`);
+    if(my){
+      my.removeAttribute('hidden');
+      my.textContent = `Deine Auswahl: ${myResponse==='yes'?'Ja':(myResponse==='maybe'?'Vielleicht':'Nein')}`;
+    }
+    const card = document.getElementById(`session-${sessionId}`);
+    if(card){
+      card.querySelectorAll('.js-rsvp-form .rsvp-btn').forEach(btn=>{
+        btn.classList.remove('btn-success','btn-warning','btn-danger','btn-outline-success','btn-outline-warning','btn-outline-danger');
+        const resp = btn.getAttribute('data-response');
+        const isActive = resp === myResponse;
+        if(resp==='yes') btn.classList.add(isActive?'btn-success':'btn-outline-success');
+        if(resp==='maybe') btn.classList.add(isActive?'btn-warning':'btn-outline-warning');
+        if(resp==='no') btn.classList.add(isActive?'btn-danger':'btn-outline-danger');
+      });
+    }
+  }
+
+  document.addEventListener('submit', function(e){
+    const rsvpForm = e.target.closest('.js-rsvp-form');
+    if(rsvpForm){
+      e.preventDefault();
+      const sessionId = rsvpForm.getAttribute('data-session-id');
+      const btn = rsvpForm.querySelector('button.rsvp-btn');
+      const response = btn ? btn.getAttribute('data-response') : rsvpForm.querySelector('input[name="response"]').value;
+      fetch(rsvpForm.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: toFormData({ response })
+      }).then(r=>r.json()).then(data=>{
+        if(!data || !data.ok) return;
+        updateRSVPUI(data.session_id, data.my_response, data.yes, data.maybe, data.no);
+        // Falls die Sitzung in "Offene Zusagen" gelistet war, nach Antwort entfernen
+        const openItem = document.getElementById(`open-session-${data.session_id}`);
+        if(openItem){
+          const grid = document.getElementById('open-rsvps-grid');
+          openItem.remove();
+          if(grid && grid.children.length === 0){
+            const card = document.getElementById('open-rsvps-card');
+            if(card){ card.style.display = 'none'; }
+          }
+        }
+      }).catch(()=>{});
+    }
+  });
+
+  document.addEventListener('submit', function(e){
+    const pollForm = e.target.closest('.js-poll-vote');
+    if(pollForm){
+      e.preventDefault();
+      const optionId = pollForm.getAttribute('data-option-id');
+      const btn = pollForm.querySelector('button[type="submit"]');
+      const response = btn ? btn.getAttribute('data-response') : pollForm.querySelector('input[name="response"]').value;
+      fetch(pollForm.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: toFormData({ option_id: optionId, response })
+      }).then(r=>r.json()).then(data=>{
+        if(!data || !data.ok) return;
+        setElText(`poll-${data.poll_id}-opt-${data.option_id}-yes-count`, data.yes.length);
+        setElText(`poll-${data.poll_id}-opt-${data.option_id}-maybe-count`, data.maybe.length);
+        setElText(`poll-${data.poll_id}-opt-${data.option_id}-no-count`, data.no.length);
+        setElText(`poll-${data.poll_id}-opt-${data.option_id}-yes`, joinOrDash(data.yes));
+        setElText(`poll-${data.poll_id}-opt-${data.option_id}-maybe`, joinOrDash(data.maybe));
+        setElText(`poll-${data.poll_id}-opt-${data.option_id}-no`, joinOrDash(data.no));
+      }).catch(()=>{});
+    }
+  });
+})();
+</script>
+{% endblock %}

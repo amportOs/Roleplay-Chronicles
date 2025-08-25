@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Neue Termin-Umfrage - {{ campaign.name }}{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 800px; padding: 15px;">
+  <a href="{{ url_for('view_campaign', campaign_id=campaign.id) }}" style="display:inline-block; margin-bottom:12px; color: var(--primary-color); text-decoration:none;">
+    <i class="fas fa-arrow-left"></i> Zurück zur Kampagne
+  </a>
+  <div class="card" style="border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+    <div style="padding:16px;">
+      <h2 style="margin:0 0 8px 0;">Neue Termin-Umfrage</h2>
+      <p style="margin:0 0 16px 0; color:#666;">Lege mehrere Termine an, über die Spieler abstimmen können.</p>
+      <form method="POST">
+        <div class="mb-3">
+          <label class="form-label">Titel</label>
+          <input type="text" name="title" class="form-control" placeholder="z.B. Nächste Spielsitzung" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Notizen</label>
+          <textarea name="notes" class="form-control" rows="3" placeholder="Optionale Beschreibung"></textarea>
+        </div>
+
+        <hr />
+        <h5>Optionen (Datum & Uhrzeit)</h5>
+        <p style="color:#666; font-size:0.95em;">Gib bis zu 5 Termin-Optionen an. Mindestens eine ist erforderlich.</p>
+
+        {% for i in range(1,6) %}
+        <div class="row g-2 align-items-end" style="margin-bottom:8px;">
+          <div class="col-12 col-md-4">
+            <label class="form-label">Datum {{ i }}</label>
+            <input type="date" name="date_{{ i }}" class="form-control" />
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">Uhrzeit {{ i }}</label>
+            <input type="time" name="time_{{ i }}" class="form-control" />
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label">Ort {{ i }}</label>
+            <input type="text" name="location_{{ i }}" class="form-control" placeholder="optional" />
+          </div>
+          <div class="col-12">
+            <label class="form-label">Anmerkungen {{ i }}</label>
+            <input type="text" name="notes_{{ i }}" class="form-control" placeholder="optional" />
+          </div>
+        </div>
+        {% endfor %}
+
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Umfrage erstellen</button>
+          <a href="{{ url_for('view_campaign', campaign_id=campaign.id) }}" class="btn btn-secondary">Abbrechen</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
