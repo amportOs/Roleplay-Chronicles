@@ -9,34 +9,45 @@ import uuid
 from datetime import datetime
 from sqlalchemy import or_, func
 
-import os
+# Initialize extensions
+db = SQLAlchemy()
+login_manager = LoginManager()
 
-app = Flask(__name__)
+def create_app():
+    app = Flask(__name__)
+    
+    # Configure the application
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-123')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///site.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['UPLOAD_FOLDER'] = 'static/profile_pics'
+    app.config['CHARACTER_IMAGES'] = 'static/character_images'
+    app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
+    
+    # Initialize extensions with app
+    db.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = 'login'
+    
+    # Create necessary directories
+    with app.app_context():
+        # Ensure the instance folder exists
+        os.makedirs('instance', exist_ok=True)
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        os.makedirs(app.config['CHARACTER_IMAGES'], exist_ok=True)
+        
+        # Create database tables
+        db.create_all()
+    
+    return app
 
-# Ensure the instance folder exists
-os.makedirs('instance', exist_ok=True)
+# Create the app instance
+app = create_app()
 
-# Configure the SQLite database, relative to the instance folder
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-123')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///site.db')
-app.config['UPLOAD_FOLDER'] = 'static/profile_pics'
-app.config['CHARACTER_IMAGES'] = 'static/character_images'
-app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
-
-# Create necessary directories
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs(app.config['CHARACTER_IMAGES'], exist_ok=True)
-os.makedirs('instance', exist_ok=True)  # Ensure instance folder exists for SQLite
-
-# Create upload folder if it doesn't exist
-os.makedirs(os.path.join(app.root_path, 'static/profile_pics'), exist_ok=True)
-
+# Helper function
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
 
 import os
 from datetime import datetime
