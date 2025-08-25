@@ -1,25 +1,33 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, abort, jsonify, g
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from . import db, login_manager
+from .models import User, Post  # Import models from models.py
 import os
 import time
 import uuid
 from datetime import datetime
 from sqlalchemy import or_, func
 
-# Initialize extensions
-db = SQLAlchemy()
-login_manager = LoginManager()
-
 def create_app():
     app = Flask(__name__)
     
     # Configure the application
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-123')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///site.db')
+    
+    # Handle database URL for different environments
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url and database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///site.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+    }
+    
+    # File upload configuration
     app.config['UPLOAD_FOLDER'] = 'static/profile_pics'
     app.config['CHARACTER_IMAGES'] = 'static/character_images'
     app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
@@ -29,15 +37,25 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'login'
     
-    # Create necessary directories
+    # Initialize database
     with app.app_context():
-        # Ensure the instance folder exists
-        os.makedirs('instance', exist_ok=True)
-        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        os.makedirs(app.config['CHARACTER_IMAGES'], exist_ok=True)
-        
-        # Create database tables
-        db.create_all()
+        try:
+            # Ensure the instance folder exists
+            os.makedirs('instance', exist_ok=True)
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+            os.makedirs(app.config['CHARACTER_IMAGES'], exist_ok=True)
+            
+            # Import models to ensure they are registered with SQLAlchemy
+            from login_app import models
+            
+            # Create database tables
+            db.create_all()
+            
+        except Exception as e:
+            app.logger.error(f"Error initializing database: {str(e)}")
+            # If this is production and using PostgreSQL, re-raise the error
+            if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgresql://'):
+                raise
     
     return app
 
