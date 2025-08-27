@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, abort, jsonify, g
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, abort, jsonify, g, session as flask_session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -6,8 +6,11 @@ from werkzeug.utils import secure_filename
 import os
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import or_, func
+from supabase_client import get_supabase
+from auth import admin_required, login_required
+from functools import wraps
 
 import os
 
@@ -16,12 +19,20 @@ app = Flask(__name__)
 # Ensure the instance folder exists
 os.makedirs('instance', exist_ok=True)
 
-# Configure the SQLite database, relative to the instance folder
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
+# Configure the application
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-123')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///site.db')
 app.config['UPLOAD_FOLDER'] = 'static/profile_pics'
 app.config['CHARACTER_IMAGES'] = 'static/character_images'
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # Session lasts 30 days
+
+# Initialize Supabase
+supabase = get_supabase()
 
 # Create necessary directories
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -44,16 +55,58 @@ from datetime import datetime
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(20), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     full_name = db.Column(db.String(100), nullable=True)
     bio = db.Column(db.Text, nullable=True)
     profile_pic = db.Column(db.String(100), default='default.jpg')
-    password = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(100), nullable=True)  # Can be null for OAuth users
     posts = db.relationship('Post', backref='author', lazy=True)
     is_admin = db.Column(db.Boolean, default=False)
     is_approved = db.Column(db.Boolean, default=False)
     profile_updated = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime, nullable=True)
+    supabase_uid = db.Column(db.String(255), unique=True, nullable=True)  # Supabase user ID
+    
+    @classmethod
+    def get_or_create_from_supabase(cls, supabase_user):
+        """Get or create a user from Supabase auth data"""
+        # Try to find existing user by supabase_uid
+        user = cls.query.filter_by(supabase_uid=supabase_user.id).first()
+        
+        if not user:
+            # Try to find by email as fallback
+            user = cls.query.filter_by(email=supabase_user.email).first()
+            
+            if user:
+                # Update existing user with Supabase UID
+                user.supabase_uid = supabase_user.id
+            else:
+                # Create new user
+                username = supabase_user.email.split('@')[0]
+                # Ensure username is unique
+                base_username = username
+                counter = 1
+                while cls.query.filter_by(username=username).first() is not None:
+                    username = f"{base_username}{counter}"
+                    counter += 1
+                
+                user = cls(
+                    username=username,
+                    email=supabase_user.email,
+                    supabase_uid=supabase_user.id,
+                    is_approved=True  # Or set based on your requirements
+                )
+                db.session.add(user)
+        
+        # Update user data from Supabase
+        user.email = supabase_user.email
+        user.last_login = datetime.utcnow()
+        
+        # Save changes
+        db.session.commit()
+        
+        return user
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -295,217 +348,173 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        # If user is already logged in but hasn't completed their profile, redirect them
-        if not current_user.profile_updated:
-            flash('Please complete your profile to continue.', 'info')
-            return redirect(url_for('profile'))
         return redirect(url_for('home'))
-        
+    
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        remember = bool(request.form.get('remember'))
         
-        if user and check_password_hash(user.password, password):
-            if not user.is_approved:
-                flash('Your account is pending admin approval. You will receive an email once your account is approved.', 'warning')
-                return redirect(url_for('login'))
-                
-            login_user(user, remember=True)
+        if not email or not password:
+            flash('Bitte fülle alle Pflichtfelder aus.', 'danger')
+            return redirect(url_for('login'))
+        
+        try:
+            # Try to log in with Supabase
+            response = supabase.auth.sign_in_with_password({
+                'email': email,
+                'password': password
+            })
             
-            # Check if user needs to complete their profile
-            if not user.profile_updated:
-                flash('Welcome! Please complete your profile to continue.', 'info')
-                return redirect(url_for('profile'))
-                
+            if not response.user:
+                flash('Anmeldung fehlgeschlagen. Bitte überprüfe deine Anmeldedaten.', 'danger')
+                return redirect(url_for('login'))
+            
+            # Get user data from Supabase
+            user_data = response.user
+            
+            # Get or create user in local database
+            user = User.get_or_create_from_supabase(user_data)
+            
+            if not user.is_approved:
+                flash('Dein Konto wurde noch nicht freigeschaltet. Bitte warte auf die Freischaltung durch einen Administrator.', 'warning')
+                return redirect(url_for('login'))
+            
+            # Log in the user
+            login_user(user, remember=remember)
+            
+            # Update last login time
+            user.last_login = datetime.utcnow()
+            db.session.commit()
+            
+            flash('Erfolgreich angemeldet!', 'success')
             next_page = request.args.get('next')
-            flash(f'Welcome back, {user.full_name or user.username}!', 'success')
-            return redirect(next_page) if next_page else redirect(url_for('home'))
-        else:
-            flash('Invalid username or password. Please try again.', 'danger')
+            return redirect(next_page or url_for('home'))
+            
+        except Exception as e:
+            error_message = str(e).lower()
+            if 'email not confirmed' in error_message:
+                flash('Bitte bestätige deine E-Mail-Adresse, bevor du dich anmeldest.', 'warning')
+            elif 'invalid login credentials' in error_message:
+                flash('Ungültige Anmeldedaten. Bitte überprüfe deine E-Mail und Passwort.', 'danger')
+            else:
+                print(f"Login error: {str(e)}")
+                flash('Ein Fehler ist bei der Anmeldung aufgetreten. Bitte versuche es später erneut.', 'danger')
+            return redirect(url_for('login'))
     
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
         
-        if User.query.filter_by(username=username).first():
-            flash('Username already exists')
+        # Basic validation
+        if not all([email, password, confirm_password]):
+            flash('Bitte fülle alle Pflichtfelder aus.', 'danger')
             return redirect(url_for('register'))
             
-        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-        new_user = User(username=username, password=hashed_password, is_approved=False)
+        if len(password) < 8:
+            flash('Das Passwort muss mindestens 8 Zeichen lang sein.', 'danger')
+            return redirect(url_for('register'))
+            
+        if password != confirm_password:
+            flash('Die Passwörter stimmen nicht überein.', 'danger')
+            return redirect(url_for('register'))
         
-        # First user becomes admin and auto-approved
-        if User.query.count() == 0:
-            new_user.is_admin = True
-            new_user.is_approved = True
-        
-        db.session.add(new_user)
-        db.session.commit()
-        
-        if new_user.is_approved:
-            flash('Registration successful! Please log in.')
-        else:
-            flash('Registration successful! Please wait for admin approval.')
-        return redirect(url_for('login'))
-        
-    return render_template('register.html')
-
-@app.route('/post', methods=['POST'])
-@login_required
-def create_post():
-    if request.method == 'POST':
-        content = request.form.get('content')
-        if content:
-            post = Post(content=content, user_id=current_user.id, timestamp=datetime.utcnow())
-            db.session.add(post)
+        try:
+            # Check if email already exists in local database
+            if User.query.filter_by(email=email).first():
+                flash('Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an oder verwende eine andere E-Mail-Adresse.', 'danger')
+                return redirect(url_for('login'))
+            
+            # Create user in Supabase
+            response = supabase.auth.sign_up({
+                'email': email,
+                'password': password,
+                'options': {
+                    'data': {
+                        'email_redirect_to': url_for('login', _external=True)
+                    }
+                }
+            })
+            
+            if not response.user:
+                flash('Registrierung fehlgeschlagen. Bitte versuche es später erneut.', 'danger')
+                return redirect(url_for('register'))
+            
+            # Get the created user from Supabase
+            user_data = response.user
+            
+            # Create user in local database
+            username = email.split('@')[0]
+            base_username = username
+            counter = 1
+            
+            # Ensure username is unique
+            while User.query.filter_by(username=username).first() is not None:
+                username = f"{base_username}{counter}"
+                counter += 1
+            
+            user = User(
+                email=email,
+                username=username,
+                supabase_uid=user_data.id,
+                is_approved=False,  # Admin needs to approve the account
+                created_at=datetime.utcnow()
+            )
+            
+            db.session.add(user)
             db.session.commit()
-    return redirect(url_for('home'))
-
-@app.route('/admin')
-@login_required
-def admin():
-    print(f"[DEBUG] Admin access attempt by user: {current_user.username}, is_admin: {current_user.is_admin}")
-    # Only allow admin users to access this page
-    if not current_user.is_admin:
-        print("[DEBUG] Access denied - user is not an admin")
-        flash('You do not have permission to access the admin panel.', 'danger')
-        return redirect(url_for('home'))
-    
-    try:
-        print("[DEBUG] Attempting to fetch pending users...")
-        # Get all users who are not approved yet, ordered by registration date (newest first)
-        pending_users = User.query.filter_by(is_approved=False).order_by(User.created_at.desc()).all()
-        print(f"[DEBUG] Found {len(pending_users)} pending users")
-        
-        # Get system statistics
-        print("[DEBUG] Fetching system statistics...")
-        total_users = User.query.count()
-        active_users = User.query.filter_by(is_approved=True).count()
-        total_posts = Post.query.count()
-        print(f"[DEBUG] Stats - Total: {total_users}, Active: {active_users}, Posts: {total_posts}")
-        
-        # Test template rendering with minimal data
-        print("[DEBUG] Attempting to render template...")
-        return render_template(
-            'admin.html',
-            pending_users=pending_users or [],
-            total_users=total_users,
-            active_users=active_users,
-            total_posts=total_posts
-        )
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"[ERROR] Admin panel error: {str(e)}\n{error_details}")
-        flash(f'An error occurred: {str(e)}', 'danger')
-        return redirect(url_for('home'))
-        return redirect(url_for('home'))
-
-@app.route('/approve_user/<int:user_id>', methods=['GET', 'POST'])
-@login_required
-def approve_user(user_id):
-    if not current_user.is_admin:
-        flash('You do not have permission to perform this action.', 'danger')
-        return redirect(url_for('home'))
-    
-    user = User.query.get_or_404(user_id)
-    user.is_approved = True
-    db.session.commit()
-    flash(f'User {user.username} has been approved!', 'success')
-    return redirect(url_for('admin'))
-
-@app.route('/reject_user/<int:user_id>', methods=['POST'])
-@login_required
-def reject_user(user_id):
-    if not current_user.is_admin:
-        flash('You do not have permission to perform this action.', 'danger')
-        return redirect(url_for('home'))
-    
-    user = User.query.get_or_404(user_id)
-    username = user.username
-    db.session.delete(user)
-    db.session.commit()
-    flash(f'User {username} has been rejected and removed from the system.', 'success')
-    return redirect(url_for('admin'))
-
-@app.route('/profile', methods=['GET', 'POST'])
-@login_required
-def profile():
-    # Get post count for the current user
-    post_count = Post.query.filter_by(user_id=current_user.id).count()
-    
-    if request.method == 'POST':
-        current_user.full_name = request.form.get('full_name', '').strip()
-        # Handle email - set to None if empty to avoid UNIQUE constraint violation
-        email = request.form.get('email', '').strip()
-        current_user.email = email if email else None
-        current_user.bio = request.form.get('bio', '').strip()
-        
-        # Handle profile picture upload
-        if 'profile_pic' in request.files and request.files['profile_pic'].filename != '':
-            file = request.files['profile_pic']
-            if file and allowed_file(file.filename):
-                # Delete old profile picture if it exists and is not the default
-                if current_user.profile_pic and current_user.profile_pic != 'default.jpg':
-                    try:
-                        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], current_user.profile_pic))
-                    except Exception as e:
-                        print(f"Error deleting old profile picture: {e}")
-                
-                # Save new profile picture
-                filename = secure_filename(f"{current_user.id}_{int(time.time())}_{file.filename}")
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                current_user.profile_pic = filename
-                current_user.profile_updated = True
-        
-        # Handle password change if provided
-        current_password = request.form.get('current_password')
-        new_password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        
-        if current_password or new_password or confirm_password:
-            if not current_password or not new_password or not confirm_password:
-                flash('Please fill in all password fields to change your password.', 'danger')
-            elif not check_password_hash(current_user.password, current_password):
-                flash('Current password is incorrect.', 'danger')
-            elif new_password != confirm_password:
-                flash('New passwords do not match!', 'danger')
+            
+            # Notify admin about new registration (you can implement this function)
+            # notify_admin_about_new_user(user)
+            
+            flash('Registrierung erfolgreich! Bitte überprüfe deine E-Mail, um dein Konto zu bestätigen, und warte auf die Freischaltung durch einen Administrator.', 'success')
+            return redirect(url_for('login'))
+            
+        except Exception as e:
+            db.session.rollback()
+            error_message = str(e).lower()
+            
+            if 'user already registered' in error_message or 'email already in use' in error_message:
+                flash('Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an oder verwende eine andere E-Mail-Adresse.', 'danger')
+                return redirect(url_for('login'))
+            elif 'password should be at least' in error_message:
+                flash('Das Passwort ist zu schwach. Bitte wähle ein sicheres Passwort mit mindestens 8 Zeichen.', 'danger')
             else:
-                current_user.password = generate_password_hash(new_password, method='sha256')
-                flash('Password updated successfully!', 'success')
-        
-        # Mark profile as updated if this is the first time
-        if not current_user.profile_updated:
-            current_user.profile_updated = True
-            db.session.commit()
-            flash('Profile completed successfully!', 'success')
-            return redirect(url_for('home'))
-        
-        db.session.commit()
-        flash('Profile updated successfully!', 'success')
-        return redirect(url_for('profile'))
+                print(f"Registration error: {str(e)}")
+                flash('Bei der Registrierung ist ein Fehler aufgetreten. Bitte versuche es später erneut.', 'danger')
+            
+            return redirect(url_for('register'))
     
-    return render_template('profile.html', post_count=post_count)
-
-@app.route('/profile_pic/<filename>')
-def profile_pic(filename):
-    return send_from_directory(os.path.join(app.root_path, app.config['UPLOAD_FOLDER']), filename)
+    return render_template('register.html')
 
 @app.route('/logout')
 @login_required
 def logout():
+    try:
+        # Sign out from Supabase
+        supabase.auth.sign_out()
+    except Exception as e:
+        print(f"Error during logout: {str(e)}")
+    
+    # Logout from Flask-Login
     logout_user()
-    return redirect(url_for('login'))
+    
+    # Clear Flask session
+    flask_session.clear()
+    
+    return redirect(url_for('home'))
 
 @app.route('/check_db')
 def check_db():
     try:
-        # Check if tables exist
         from sqlalchemy import inspect
         inspector = inspect(db.engine)
         tables = inspector.get_table_names()

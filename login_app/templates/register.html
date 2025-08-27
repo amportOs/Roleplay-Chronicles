@@ -2,53 +2,180 @@
 
 {% block title %}Register{% endblock %}
 
+{% block extra_css %}
+<style>
+    .register-container {
+        max-width: 400px;
+        margin: 30px auto 0;
+    }
+    .register-header {
+        text-align: center;
+        margin-bottom: 25px;
+    }
+    .register-title {
+        color: var(--primary-color);
+        margin-bottom: 10px;
+    }
+    .register-subtitle {
+        color: #666;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+    }
+    .form-input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+    .password-hint {
+        color: #666;
+        font-size: 0.9em;
+        display: block;
+        margin-top: 5px;
+    }
+    .terms-container {
+        margin-bottom: 20px;
+        font-size: 14px;
+        color: #666;
+    }
+    .terms-checkbox {
+        margin-right: 8px;
+    }
+    .terms-link {
+        color: var(--accent-color);
+        text-decoration: none;
+    }
+    .submit-btn {
+        width: 100%;
+        padding: 12px;
+        font-size: 16px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    .submit-btn:hover {
+        background-color: var(--primary-dark);
+    }
+    .login-footer {
+        text-align: center;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+    }
+    .login-footer p {
+        color: #666;
+        margin-bottom: 0;
+    }
+    .login-link {
+        color: var(--accent-color);
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .legal-text {
+        text-align: center;
+        margin-top: 20px;
+        color: #666;
+        font-size: 0.9em;
+    }
+    .legal-link {
+        color: var(--accent-color);
+        text-decoration: none;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container" style="max-width: 400px; margin-top: 30px;">
+<div class="container register-container">
     <div class="card">
-        <div style="text-align: center; margin-bottom: 25px;">
-            <h1 style="color: var(--primary-color); margin-bottom: 10px;">
+        <div class="register-header">
+            <h1 class="register-title">
                 <i class="fas fa-user-plus"></i> Create Account
             </h1>
-            <p style="color: #666;">Join our community today</p>
+            <p class="register-subtitle">Join our community today</p>
         </div>
 
-        <form method="POST" action="{{ url_for('register') }}">
-            <div style="margin-bottom: 20px;">
-                <label for="username" style="display: block; margin-bottom: 5px; font-weight: 500;">
-                    <i class="fas fa-user"></i> Username
+        <form method="POST" action="{{ url_for('register') }}" class="auth-form">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="form-group">
+                <label for="email" class="form-label">
+                    <i class="fas fa-envelope"></i> Email Address
                 </label>
-                <input type="text" id="username" name="username" required 
-                       style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px;">
+                <input type="email" id="email" name="email" required 
+                       class="form-input"
+                       placeholder="your@email.com">
             </div>
 
-            <div style="margin-bottom: 25px;">
-                <label for="password" style="display: block; margin-bottom: 5px; font-weight: 500;">
+            <div class="form-group">
+                <label for="password" class="form-label">
                     <i class="fas fa-lock"></i> Password
                 </label>
                 <input type="password" id="password" name="password" required
-                       style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px;">
-                <small style="color: #666; font-size: 0.9em;">
+                       class="form-input"
+                       placeholder="••••••••">
+                <small class="password-hint">
                     Use a strong password with at least 8 characters
                 </small>
             </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 16px;">
+            <div class="form-group">
+                <label for="confirm_password" class="form-label">
+                    <i class="fas fa-lock"></i> Confirm Password
+                </label>
+                <input type="password" id="confirm_password" name="confirm_password" required
+                       class="form-input"
+                       placeholder="••••••••">
+            </div>
+
+            <div class="terms-container">
+                <input type="checkbox" id="terms" name="terms" required class="terms-checkbox">
+                <label for="terms">
+                    I agree to the 
+                    <a href="#" class="terms-link">Terms of Service</a> 
+                    and 
+                    <a href="#" class="terms-link">Privacy Policy</a>
+                </label>
+            </div>
+
+            <button type="submit" class="submit-btn">
                 <i class="fas fa-user-plus"></i> Create Account
             </button>
         </form>
 
-        <div style="text-align: center; margin-top: 25px; padding-top: 20px; border-top: 1px solid #eee;">
-            <p style="color: #666; margin-bottom: 0;">
+        <div class="login-footer">
+            <p>
                 Already have an account? 
-                <a href="{{ url_for('login') }}" style="color: var(--accent-color); text-decoration: none; font-weight: 500;">
+                <a href="{{ url_for('login') }}" class="login-link">
                     Sign in here
                 </a>
             </p>
         </div>
     </div>
     
-    <div style="text-align: center; margin-top: 20px; color: #666; font-size: 0.9em;">
-        <p>By registering, you agree to our <a href="#" style="color: var(--accent-color);">Terms of Service</a> and <a href="#" style="color: var(--accent-color);">Privacy Policy</a>.</p>
+    <div class="legal-text">
+        <p>
+            By registering, you agree to our 
+            <a href="#" class="legal-link">Terms of Service</a> and 
+            <a href="#" class="legal-link">Privacy Policy</a>.
+        </p>
     </div>
 </div>
 {% endblock %}
