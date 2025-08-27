@@ -3,6 +3,8 @@ services:
     name: roleplay-chronicles
     env: python
     region: frankfurt
+    python:
+      version: 3.11.6
     buildCommand: |
       pip install -r requirements.txt
       python -m flask db upgrade
@@ -10,6 +12,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.6
+      - key: PYTHONUNBUFFERED
+        value: true
+      - key: PYTHONHASHSEED
+        value: random
       - key: FLASK_APP
         value: run.py
       - key: FLASK_ENV
