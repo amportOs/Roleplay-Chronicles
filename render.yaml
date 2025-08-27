@@ -2,18 +2,32 @@ services:
   - type: web
     name: roleplay-chronicles
     env: python
+    region: frankfurt
     buildCommand: |
       pip install -r requirements.txt
-      python init_db.py
-    startCommand: gunicorn "login_app:app"
+      python -m flask db upgrade
+    startCommand: gunicorn "run:app"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.6
       - key: FLASK_APP
-        value: login_app/app.py
+        value: run.py
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
         generateValue: true
+      - key: SUPABASE_URL
+        fromService:
+          name: roleplay-chronicles
+          type: web
+          property: env.SUPABASE_URL
+      - key: SUPABASE_KEY
+        fromService:
+          name: roleplay-chronicles
+          type: web
+          property: env.SUPABASE_KEY
       - key: DATABASE_URL
-        value: sqlite:///instance/site.db
+        fromService:
+          name: roleplay-chronicles
+          type: web
+          property: env.DATABASE_URL

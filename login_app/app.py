@@ -1,28 +1,20 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, abort, jsonify, session
-from flask_login import LoginManager, current_user
-from werkzeug.utils import secure_filename
-from werkzeug.middleware.proxy_fix import ProxyFix
-from datetime import datetime, timedelta
-import os
-import uuid
-from .extensions import db, login_manager, migrate, cors
+from flask import Flask
+from .extensions import db, login_manager, migrate, cors, get_supabase
 from .models import User, init_db
 from .auth import auth as auth_blueprint
 from .main import main as main_blueprint
 from .storage import allowed_file, upload_file, delete_file
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+import os
+from datetime import timedelta
 
 def create_app():
     app = Flask(__name__)
     
     # Configure the application
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-123')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///site.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # Session lasts 30 days
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
     
     # File upload configuration
     app.config['UPLOAD_FOLDER'] = 'static/profile_pics'
@@ -42,7 +34,7 @@ def create_app():
     
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(user_id)
+        return User.query.get(int(user_id))
     
     # Register blueprints
     app.register_blueprint(auth_blueprint)
@@ -60,10 +52,7 @@ def create_app():
         init_db()
     
     # Add proxy fix if behind a reverse proxy
+    from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
     
     return app
-
-if __name__ == '__main__':
-    app = create_app()
-    app.run(debug=True)

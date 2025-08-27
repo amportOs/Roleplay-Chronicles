@@ -1,4 +1,4 @@
-from login_app.app import create_app
+from login_app import create_app
 
 app = create_app()
 
