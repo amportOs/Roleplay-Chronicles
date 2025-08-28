@@ -10,7 +10,6 @@ import re
 # Initialize extensions
 db = SQLAlchemy()
 login_manager = LoginManager()
-migrate = Migrate()  # Will be initialized with app later
 cors = CORS()
 
 def create_app():
@@ -130,37 +129,39 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     
-    # Set up migrations directory in the project root
-    basedir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    migrations_dir = os.path.join(basedir, 'migrations')
+    # Initialize Flask-Migrate
+    from flask_migrate import Migrate
+    migrate = Migrate()
     
-    # Ensure the migrations directory exists
+    # Set up migrations directory
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    migrations_dir = os.path.join(basedir, '..', 'migrations')
+    
+    # Ensure migrations directory exists
     os.makedirs(migrations_dir, exist_ok=True)
     
-    # Initialize Flask-Migrate
-    global migrate
-    migrate = Migrate()
+    # Initialize Flask-Migrate with the app and db
     migrate.init_app(app, db, directory=migrations_dir)
     
     # Initialize CORS
     cors.init_app(app)
     
-    # Create all database tables
+    # Import and register blueprints
+    from .auth import auth as auth_blueprint
+    from .main import main as main_blueprint
+    from .campaigns import campaigns as campaigns_blueprint
+    from .characters import characters as characters_blueprint
+    
+    app.register_blueprint(auth_blueprint)
+    app.register_blueprint(main_blueprint)
+    app.register_blueprint(campaigns_blueprint)
+    app.register_blueprint(characters_blueprint)
+    
+    # Create database tables if they don't exist
     with app.app_context():
         db.create_all()
     
     # Configure login manager
     login_manager.login_view = 'auth.login'
-    
-    # Register blueprints
-    from .auth import auth as auth_blueprint
-    from .main import main as main_blueprint
-    
-    app.register_blueprint(auth_blueprint)
-    app.register_blueprint(main_blueprint)
-    
-    # Create database tables
-    with app.app_context():
-        db.create_all()
     
     return app

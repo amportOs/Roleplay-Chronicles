@@ -8,7 +8,13 @@ services:
     buildCommand: |
       pip install -r requirements.txt
       
-      # Only initialize test data (tables already exist in Supabase)
+      # Create necessary directories
+      mkdir -p instance
+      
+      # Skip migrations since tables already exist in Supabase
+      echo "Skipping migrations - using existing Supabase tables"
+      
+      # Only initialize test data if needed
       echo "Checking if test data needs to be created..."
       python init_db.py
     startCommand: gunicorn "wsgi:app"
