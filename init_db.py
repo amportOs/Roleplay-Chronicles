@@ -22,16 +22,14 @@ migrate = Migrate(app, db)
 
 def wait_for_db(max_retries=5, delay=5):
     """Wait for the database to become available."""
-    from sqlalchemy.exc import OperationalError
+    from sqlalchemy.exc import OperationalError, ProgrammingError
     
     for attempt in range(max_retries):
         try:
-            with app.app_context():
-                # Try to execute a simple query
-                db.session.execute('SELECT 1')
-                print("Database connection successful!")
-                return True
-        except Exception as e:
+            # Try to execute a simple query
+            db.session.execute('SELECT 1')
+            return True
+        except (OperationalError, ProgrammingError) as e:
             if attempt < max_retries - 1:
                 print(f"Database connection failed (attempt {attempt + 1}/{max_retries}): {str(e)}")
                 print(f"Retrying in {delay} seconds...")
@@ -44,71 +42,78 @@ def init_db():
     """Initialize the database and create test data if needed."""
     print("Initializing database...")
     
-    # Wait for the database to be available
-    if not wait_for_db():
-        print("Failed to connect to the database after multiple attempts.")
-        sys.exit(1)
-    
     try:
-        # Create all database tables
-        print("Creating database tables...")
-        with app.app_context():
-            db.create_all()
-            
-            # Only create test data if the database is empty
-            from login_app.models import User
-            if not User.query.first():
-                print("Creating test data...")
-                create_test_data()
-            
-            print("Database initialized successfully!")
-            
+        # Wait for the database to be available
+        if not wait_for_db():
+            print("Failed to connect to the database after multiple attempts.")
+            sys.exit(1)
+        
+        # Create all database tables if they don't exist
+        print("Creating database tables if they don't exist...")
+        db.create_all()
+        
+        # Only create test data if the database is empty
+        from login_app.models import User
+        if not User.query.first():
+            print("Creating test data...")
+            create_test_data()
+        
+        print("Database initialized successfully!")
+        return True
+        
     except Exception as e:
         print(f"Error initializing database: {str(e)}")
         import traceback
         traceback.print_exc()
-        sys.exit(1)
+        return False
 
 def create_test_data():
     """Create test data in the database."""
     from login_app.models import User, Campaign, Character
+    from werkzeug.security import generate_password_hash
     
-    # Create test user
-    user1 = User(
-        username='testuser',
-        email='test@example.com',
-        password='test123',  # Will be hashed by the User model
-        profile_pic='default.jpg',
-        bio='Test user bio',
-        is_admin=False
-    )
-    db.session.add(user1)
-    
-    # Create test campaign
-    campaign1 = Campaign(
-        title='Test Campaign',
-        description='A test campaign',
-        game_master_id=1,
-        image='default_campaign.jpg',
-        is_public=True
-    )
-    db.session.add(campaign1)
-    
-    # Create test character
-    character1 = Character(
-        name='Test Character',
-        race='Human',
-        character_class='Fighter',
-        level=1,
-        user_id=1,
-        campaign_id=1,
-        image='default_character.jpg'
-    )
-    db.session.add(character1)
-    
-    # Commit all changes
-    db.session.commit()
-    print("Test data created successfully!")
+    try:
+        # Create test user
+        user1 = User(
+            username='testuser',
+            email='test@example.com',
+            password_hash=generate_password_hash('test123'),
+            created_at=datetime.utcnow()
+        )
+        db.session.add(user1)
+        db.session.commit()
+        
+        # Create test campaign
+        campaign1 = Campaign(
+            name='The Lost Mine of Phandelver',
+            description='A classic D&D adventure for beginners',
+            created_at=datetime.utcnow(),
+            user_id=user1.id
+        )
+        db.session.add(campaign1)
+        
+        # Create test character
+        character1 = Character(
+            name='Erevan Moonshadow',
+            race='Elf',
+            character_class='Wizard',
+            level=1,
+            user_id=user1.id,
+            campaign_id=campaign1.id,
+            image='default_character.jpg'
+        )
+        db.session.add(character1)
+        
+        # Commit all changes
+        db.session.commit()
+        print("Test data created successfully!")
+        return True
+    except Exception as e:
+        print(f"Error creating test data: {str(e)}")
+        db.session.rollback()
+        return False
 
 if __name__ == "__main__":
-    init_db()
+    if not init_db():
+        print("Database initialization failed.")
+        sys.exit(1)

@@ -8,12 +8,14 @@ services:
     buildCommand: |
       pip install -r requirements.txt
       
-      # Run database migrations
-      echo "Running database migrations..."
-      python migrate_db.py
+      # Create migrations directory
+      mkdir -p migrations
       
-      # Initialize database with test data
+      # Initialize the database directly
       echo "Initializing database..."
+      python -c "from login_app import db, create_app; app = create_app(); app.app_context().push(); db.create_all()"
+      
+      # Run init script to add test data if needed
       python init_db.py
     startCommand: gunicorn "wsgi:app"
     envVars:
