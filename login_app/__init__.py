@@ -4,7 +4,7 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_cors import CORS
 import os
-from urllib.parse import urlparse, parse_qs, urlunparse
+from urllib.parse import urlparse, parse_qs, urlunparse, quote_plus
 import re
 
 db = SQLAlchemy()
@@ -28,46 +28,41 @@ def create_app():
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
         
-        # Check if this is a direct Supabase connection (IPv6) and convert to connection pooler
+        # Parse the URL to handle both direct and pooler connections
+        parsed = urlparse(database_url)
+        username = parsed.username or 'postgres'
+        password = parsed.password or ''
+        
+        # Handle direct Supabase connection (IPv6)
         if 'db.' in database_url and '.supabase.co' in database_url:
-            # Extract the project ref and password from the original URL
-            # Import already at top of file
-            
-            # Parse the original URL to get the password
-            parsed = urlparse(database_url)
-            username = parsed.username or 'postgres'  # Default to 'postgres' if not specified
-            password = parsed.password or ''
-            
             # Extract the project ref from the hostname
             match = re.search(r'db\.([a-zA-Z0-9]+)\.supabase\.co', parsed.hostname or '')
             if match and password:
                 project_ref = match.group(1)
-                
-                # Ensure the username is in the correct format for the connection pooler
-                if not username.startswith('postgres.'):
-                    username = f'postgres.{project_ref}'
-                
-                # Construct the connection pooler URL with the original password
-                database_url = f"postgresql://{username}:{password}@aws-1-eu-central-1.pooler.supabase.com:5432/postgres"
-                print(f"Converted to connection pooler URL with username: {username}")
+                username = f'postgres.{project_ref}'
+                hostname = 'aws-1-eu-central-1.pooler.supabase.com'
+                port = 5432
+                print(f"Converted direct Supabase URL to connection pooler format")
             else:
                 print("Warning: Could not extract project ref or password from DATABASE_URL")
-        # If already using the pooler but with wrong format, fix the username
-        elif 'pooler.supabase.com' in database_url and '@aws-' in database_url:
-            parsed = urlparse(database_url)
-            username = parsed.username or ''
-            password = parsed.password or ''
-            
-            if not username.startswith('postgres.') and '.' not in username:
-                # Extract project ref from the username if possible
-                project_ref = username.split('@')[0] if '@' in username else 'your_project_ref'
-                new_username = f'postgres.{project_ref}'
-                # Reconstruct the URL with the correct username
-                netloc = f"{new_username}:{password}@{parsed.hostname}"
-                if parsed.port:
-                    netloc += f":{parsed.port}"
-                database_url = urlunparse(parsed._replace(netloc=netloc))
-                print(f"Updated pooler URL with correct username format: {new_username}")
+                return None
+        # Handle connection pooler URL
+        elif 'pooler.supabase.com' in database_url:
+            hostname = parsed.hostname
+            port = parsed.port or 5432
+        else:
+            print("Warning: Unsupported database URL format")
+            return None
+        
+        # URL encode the password to handle special characters
+        if password:
+            encoded_password = quote_plus(password)
+            # Rebuild the URL with encoded password
+            netloc = f"{username}:{encoded_password}@{hostname}"
+            if port:
+                netloc += f":{port}"
+            database_url = urlunparse(parsed._replace(netloc=netloc, scheme='postgresql'))
+            print("Processed database URL with encoded credentials")
         
         # Add sslmode=require if not present
         if 'sslmode=' not in database_url:
