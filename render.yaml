@@ -7,7 +7,12 @@ services:
       version: 3.11.6
     buildCommand: |
       pip install -r requirements.txt
-      python test_db.py && python init_db.py
+      # Create migrations directory if it doesn't exist
+      mkdir -p migrations
+      # Initialize database and run migrations
+      python init_db.py
+      # Run database tests
+      python test_db.py
     startCommand: gunicorn "wsgi:app"
     envVars:
       # Python configuration

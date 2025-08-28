@@ -8,10 +8,11 @@ from urllib.parse import urlparse
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 # Now import the app and db
-from login_app import create_app, db
+from login_app import create_app, db, migrate
 
 # Create the Flask application
 app = create_app()
+app.app_context().push()  # Create application context
 
 def wait_for_db(max_retries=5, delay=5):
     """Wait for the database to become available."""
@@ -34,55 +35,80 @@ def wait_for_db(max_retries=5, delay=5):
                 return False
 
 def init_db():
+    """Initialize the database and apply migrations."""
     print("Initializing database...")
     
-    # Parse database URL for logging (without password)
-    db_url = urlparse(app.config['SQLALCHEMY_DATABASE_URI'])
-    safe_url = f"{db_url.scheme}://{db_url.hostname}:{db_url.port}{db_url.path}"
-    print(f"Connecting to database: {safe_url}")
-    
-    # Wait for database to be available
+    # Wait for the database to be available
     if not wait_for_db():
-        print("Failed to connect to the database. Exiting.")
+        print("Failed to connect to the database after multiple attempts.")
         sys.exit(1)
     
-    # Create all database tables
-    with app.app_context():
-        try:
-            print("Creating database tables...")
+    try:
+        # Initialize migrations if they don't exist
+        migrations_dir = os.path.join(os.path.dirname(__file__), 'migrations')
+        if not os.path.exists(migrations_dir):
+            print("Initializing migrations...")
+            os.makedirs(migrations_dir, exist_ok=True)
+            from flask_migrate import init as migrate_init
+            migrate_init()
+        
+        # Create or upgrade database
+        print("Creating/updating database tables...")
+        with app.app_context():
             db.create_all()
-            print("Database tables created successfully!")
             
-            # Verify the tables exist
-            from sqlalchemy import inspect, text
+            # Only create test data if the database is empty
+            from login_app.models import User
+            if not User.query.first():
+                print("Creating test data...")
+                create_test_data()
             
-            # Test the connection with a raw query
-            try:
-                db.session.execute(text('SELECT 1'))
-                print("Database connection is working.")
-            except Exception as e:
-                print(f"Error executing test query: {str(e)}")
+            print("Database initialized successfully!")
             
-            inspector = inspect(db.engine)
-            tables = inspector.get_table_names()
-            print("\nTables in database:", tables)
-            
-            # Check for required tables
-            required_tables = ['user', 'campaign', 'character', 'message', 'post', 'npc', 'quest', 'session']
-            missing_tables = [table for table in required_tables if table not in tables]
-            
-            if missing_tables:
-                print(f"\nWARNING: The following tables are missing: {', '.join(missing_tables)}")
-                print("Please check your model definitions and database configuration.")
-            else:
-                print("\nAll required tables exist!")
-                
-        except Exception as e:
-            print(f"Error initializing database: {str(e)}")
-            # Print more detailed error information
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
+    except Exception as e:
+        print(f"Error initializing database: {str(e)}")
+        sys.exit(1)
+
+def create_test_data():
+    """Create test data in the database."""
+    from login_app.models import User, Campaign, Character
+    
+    # Create test user
+    user1 = User(
+        username='testuser',
+        email='test@example.com',
+        password='test123',  # Will be hashed by the User model
+        profile_pic='default.jpg',
+        bio='Test user bio',
+        is_admin=False
+    )
+    db.session.add(user1)
+    
+    # Create test campaign
+    campaign1 = Campaign(
+        title='Test Campaign',
+        description='A test campaign',
+        game_master_id=1,
+        image='default_campaign.jpg',
+        is_public=True
+    )
+    db.session.add(campaign1)
+    
+    # Create test character
+    character1 = Character(
+        name='Test Character',
+        race='Human',
+        character_class='Fighter',
+        level=1,
+        user_id=1,
+        campaign_id=1,
+        image='default_character.jpg'
+    )
+    db.session.add(character1)
+    
+    # Commit all changes
+    db.session.commit()
+    print("Test data created successfully!")
 
 if __name__ == "__main__":
     init_db()

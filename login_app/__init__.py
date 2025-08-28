@@ -7,9 +7,10 @@ import os
 from urllib.parse import urlparse, parse_qs, urlunparse, quote_plus
 import re
 
+# Initialize extensions
 db = SQLAlchemy()
 login_manager = LoginManager()
-migrate = Migrate()
+migrate = Migrate()  # Will be initialized with app later
 cors = CORS()
 
 def create_app():
@@ -125,11 +126,17 @@ def create_app():
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # Initialize extensions
+    # Initialize extensions with app
     db.init_app(app)
     login_manager.init_app(app)
-    migrate.init_app(app, db)
+    # Initialize migrate with both app and db
+    global migrate
+    migrate = Migrate(app, db)
     cors.init_app(app)
+    
+    # Create tables if they don't exist
+    with app.app_context():
+        db.create_all()
     
     # Configure login manager
     login_manager.login_view = 'auth.login'
