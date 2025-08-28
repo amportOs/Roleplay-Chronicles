@@ -39,30 +39,26 @@ def wait_for_db(max_retries=5, delay=5):
                 return False
 
 def init_db():
-    """Initialize the database and create test data if needed."""
-    print("Initializing database...")
+    """Initialize test data if needed."""
+    print("Checking if test data needs to be created...")
     
     try:
         # Wait for the database to be available
         if not wait_for_db():
             print("Failed to connect to the database after multiple attempts.")
-            sys.exit(1)
-        
-        # Create all database tables if they don't exist
-        print("Creating database tables if they don't exist...")
-        db.create_all()
+            return False
         
         # Only create test data if the database is empty
         from login_app.models import User
         if not User.query.first():
-            print("Creating test data...")
-            create_test_data()
-        
-        print("Database initialized successfully!")
-        return True
-        
+            print("No users found. Creating test data...")
+            return create_test_data()
+        else:
+            print("Database already contains data. Skipping test data creation.")
+            return True
+            
     except Exception as e:
-        print(f"Error initializing database: {str(e)}")
+        print(f"Error checking database: {str(e)}")
         import traceback
         traceback.print_exc()
         return False

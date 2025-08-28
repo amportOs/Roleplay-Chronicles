@@ -8,14 +8,8 @@ services:
     buildCommand: |
       pip install -r requirements.txt
       
-      # Create migrations directory
-      mkdir -p migrations
-      
-      # Initialize the database directly
-      echo "Initializing database..."
-      python -c "from login_app import db, create_app; app = create_app(); app.app_context().push(); db.create_all()"
-      
-      # Run init script to add test data if needed
+      # Only initialize test data (tables already exist in Supabase)
+      echo "Checking if test data needs to be created..."
       python init_db.py
     startCommand: gunicorn "wsgi:app"
     envVars:
