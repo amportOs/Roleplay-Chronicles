@@ -24,9 +24,39 @@ def create_app():
     if database_url:
         print("Original DATABASE_URL:", database_url)
         
-        # Ensure the scheme is postgresql://
+        # Clean up the database URL
+        print("Original DATABASE_URL:", database_url)
+        
+        # 1. Ensure the scheme is postgresql://
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
+            print("Updated scheme to postgresql://")
+        
+        # 2. Remove any square brackets from the URL
+        if '[' in database_url or ']' in database_url:
+            database_url = database_url.replace('[', '').replace(']', '')
+            print("Removed square brackets from DATABASE_URL")
+        
+        # 3. Extract and properly encode the password
+        if '@' in database_url:
+            # Split into user:pass@host and path parts
+            auth_part, rest = database_url.split('@', 1)
+            if '://' in auth_part:
+                scheme, auth_part = auth_part.split('://', 1)
+            else:
+                scheme = 'postgresql'
+            
+            # Handle user:password format
+            if ':' in auth_part:
+                username, password = auth_part.split(':', 1)
+                # URL encode the password
+                encoded_password = quote_plus(password)
+                # Rebuild the URL with encoded password
+                auth_part = f"{username}:{encoded_password}"
+            
+            # Rebuild the full URL
+            database_url = f"{scheme}://{auth_part}@{rest}"
+            print("Processed and encoded DATABASE_URL credentials")
         
         # Parse the URL to handle both direct and pooler connections
         parsed = urlparse(database_url)
