@@ -1,4 +1,4 @@
-from login_app import create_app, db
+from login_app import create_app
 import os
 
 # Create the Flask application
