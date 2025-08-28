@@ -73,12 +73,13 @@ def create_app():
     app.register_blueprint(campaigns_blueprint, url_prefix='/campaigns')
     
     # Initialize database and run migrations
-    @app.before_first_request
-    def initialize_database():
+    with app.app_context():
         try:
             db.create_all()
             print("Database tables created/verified")
         except Exception as e:
             print(f"Error creating database tables: {str(e)}")
+            # Re-raise the exception to fail the startup if database connection fails
+            raise
     
     return app

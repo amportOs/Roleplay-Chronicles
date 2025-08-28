@@ -1,19 +1,30 @@
 import os
 from login_app import create_app, db
-from flask_migrate import upgrade
+from flask_migrate import Migrate
+import os
 
 # Create the Flask application
 app = create_app()
 
+# Initialize Flask-Migrate
+migrate = Migrate(app, db)
+
 # Initialize database and run migrations
 with app.app_context():
-    db.create_all()
-    # Run migrations if needed
     try:
+        # Create tables if they don't exist
+        db.create_all()
+        print("Database tables verified")
+        
+        # Run migrations if needed
+        from flask_migrate import upgrade
         upgrade()
+        print("Database migrations completed")
+        
     except Exception as e:
-        print(f"Migration error: {e}")
-        # Continue even if migrations fail the Flask application
+        print(f"Database initialization error: {str(e)}")
+        # Re-raise the exception to fail the startup if database connection fails
+        raise
 
 # This file is used by Gunicorn in production
 # The application factory pattern is used to create the app instance
