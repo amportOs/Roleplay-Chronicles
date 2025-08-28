@@ -72,13 +72,15 @@ def create_app():
     app.register_blueprint(characters_blueprint, url_prefix='/characters')
     app.register_blueprint(campaigns_blueprint, url_prefix='/campaigns')
     
-    # Database initialization
+    # Database initialization with fresh setup
     with app.app_context():
         try:
+            # Drop all existing tables and recreate them
+            db.drop_all()
             db.create_all()
-            print("Database tables created/verified")
+            print("Database tables recreated successfully")
         except Exception as e:
-            print(f"Error creating database tables: {str(e)}")
+            print(f"Error initializing database: {str(e)}")
             # Only fail in development, not in production
             if app.config.get('ENV') == 'development':
                 raise

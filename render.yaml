@@ -9,11 +9,11 @@ services:
       # Install dependencies
       pip install -r requirements.txt
       
-      # Create migrations directory if it doesn't exist
-      mkdir -p migrations/versions
-      chmod -R 777 migrations
+      # Remove existing migrations if any
+      rm -rf migrations/
       
-      # Initialize database tables (handled in create_app)
+      # Clean __pycache__
+      find . -type d -name "__pycache__" -exec rm -r {} +
     startCommand: gunicorn --worker-tmp-dir /dev/shm --workers 2 --threads 4 --worker-class gthread --timeout 120 "wsgi:app"
     envVars:
       # Python configuration
