@@ -1,7 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from flask_migrate import Migrate
 from flask_cors import CORS
 from urllib.parse import quote_plus
 from sqlalchemy.engine import Engine
@@ -11,7 +10,6 @@ import os
 # Initialize extensions
 db = SQLAlchemy()
 login_manager = LoginManager()
-migrate = Migrate()
 
 def create_app():
     app = Flask(__name__)
@@ -56,7 +54,6 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
-    migrate.init_app(app, db)
     
     # Configure CORS
     CORS(app, resources={r"/*": {"origins": "*"}})
@@ -72,15 +69,6 @@ def create_app():
     app.register_blueprint(characters_blueprint, url_prefix='/characters')
     app.register_blueprint(campaigns_blueprint, url_prefix='/campaigns')
     
-    # Database connection check
-    with app.app_context():
-        try:
-            # Just verify the database connection works
-            db.session.execute('SELECT 1')
-            print("Database connection verified")
-        except Exception as e:
-            print(f"Database connection error: {str(e)}")
-            if app.config.get('ENV') == 'development':
-                raise
+    # Database is already set up in Supabase, no need for initialization
     
     return app

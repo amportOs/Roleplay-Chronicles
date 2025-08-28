@@ -1,7 +1,6 @@
 Flask==2.3.3
 Flask-SQLAlchemy==3.0.3
 Flask-Login==0.6.2
-Flask-Migrate==4.0.5
 Flask-Cors==4.0.0
 Flask-WTF==1.2.1
 Werkzeug==2.3.7
@@ -20,4 +19,3 @@ postgrest==0.15.1
 realtime==1.0.6
 typing-extensions>=4.12.2,<5.0.0
 psycopg2==2.9.9
-alembic==1.12.1
