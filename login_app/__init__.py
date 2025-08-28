@@ -27,26 +27,26 @@ def create_app():
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
         
-        # Handle the case where the URL has an IPv6 address in it
-        if '[' in database_url and ']' in database_url:
-            # This is an IPv6 address, we need to handle it specially
+        # Check if this is a direct Supabase connection (IPv6) and convert to connection pooler
+        if 'db.' in database_url and '.supabase.co' in database_url:
+            # Extract the project ref and password from the original URL
             import re
-            # Extract the IPv6 part
-            ipv6_match = re.search(r'\[([0-9a-fA-F:]+)\]', database_url)
-            if ipv6_match:
-                ipv6 = ipv6_match.group(1)
-                # Replace the IPv6 with a placeholder for parsing
-                temp_url = database_url.replace(f'[{ipv6}]', 'ipv6_placeholder')
-                
-                # Parse the URL with the placeholder
-                from urllib.parse import urlparse, parse_qs, urlunparse
-                parsed = urlparse(temp_url)
-                
-                # Rebuild the URL with the original IPv6
-                netloc = parsed.netloc.replace('ipv6_placeholder', f'[{ipv6}]')
-                
-                # Reconstruct the URL
-                database_url = urlunparse(parsed._replace(netloc=netloc))
+            from urllib.parse import urlparse, parse_qs, urlunparse
+            
+            # Parse the original URL to get the password
+            parsed = urlparse(database_url)
+            username = parsed.username or ''
+            password = parsed.password or ''
+            
+            # Extract the project ref from the hostname
+            match = re.search(r'db\.([a-zA-Z0-9]+)\.supabase\.co', parsed.hostname or '')
+            if match and password:
+                project_ref = match.group(1)
+                # Construct the connection pooler URL with the original password
+                database_url = f"postgresql://postgres.{project_ref}:{password}@aws-1-eu-central-1.pooler.supabase.com:5432/postgres"
+                print("Converted to connection pooler URL")
+            else:
+                print("Warning: Could not extract project ref or password from DATABASE_URL")
         
         # Add sslmode=require if not present
         if 'sslmode=' not in database_url:
