@@ -35,18 +35,39 @@ def create_app():
             
             # Parse the original URL to get the password
             parsed = urlparse(database_url)
-            username = parsed.username or ''
+            username = parsed.username or 'postgres'  # Default to 'postgres' if not specified
             password = parsed.password or ''
             
             # Extract the project ref from the hostname
             match = re.search(r'db\.([a-zA-Z0-9]+)\.supabase\.co', parsed.hostname or '')
             if match and password:
                 project_ref = match.group(1)
+                
+                # Ensure the username is in the correct format for the connection pooler
+                if not username.startswith('postgres.'):
+                    username = f'postgres.{project_ref}'
+                
                 # Construct the connection pooler URL with the original password
-                database_url = f"postgresql://postgres.{project_ref}:{password}@aws-1-eu-central-1.pooler.supabase.com:5432/postgres"
-                print("Converted to connection pooler URL")
+                database_url = f"postgresql://{username}:{password}@aws-1-eu-central-1.pooler.supabase.com:5432/postgres"
+                print(f"Converted to connection pooler URL with username: {username}")
             else:
                 print("Warning: Could not extract project ref or password from DATABASE_URL")
+        # If already using the pooler but with wrong format, fix the username
+        elif 'pooler.supabase.com' in database_url and '@aws-' in database_url:
+            parsed = urlparse(database_url)
+            username = parsed.username or ''
+            password = parsed.password or ''
+            
+            if not username.startswith('postgres.') and '.' not in username:
+                # Extract project ref from the username if possible
+                project_ref = username.split('@')[0] if '@' in username else 'your_project_ref'
+                new_username = f'postgres.{project_ref}'
+                # Reconstruct the URL with the correct username
+                netloc = f"{new_username}:{password}@{parsed.hostname}"
+                if parsed.port:
+                    netloc += f":{parsed.port}"
+                database_url = urlunparse(parsed._replace(netloc=netloc))
+                print(f"Updated pooler URL with correct username format: {new_username}")
         
         # Add sslmode=require if not present
         if 'sslmode=' not in database_url:
