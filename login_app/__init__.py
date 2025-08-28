@@ -3,14 +3,15 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_cors import CORS
+from urllib.parse import quote_plus
+from sqlalchemy.engine import Engine
+from sqlalchemy import event
 import os
-from urllib.parse import urlparse, parse_qs, urlunparse, quote_plus
-import re
 
 # Initialize extensions
 db = SQLAlchemy()
 login_manager = LoginManager()
-cors = CORS()
+migrate = Migrate()
 
 def create_app():
     app = Flask(__name__)
@@ -24,9 +25,6 @@ def create_app():
     if database_url:
         print("Original DATABASE_URL:", database_url)
         
-        # Clean up the database URL
-        print("Original DATABASE_URL:", database_url)
-        
         # 1. Ensure the scheme is postgresql://
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
@@ -37,116 +35,32 @@ def create_app():
             database_url = database_url.replace('[', '').replace(']', '')
             print("Removed square brackets from DATABASE_URL")
         
-        # 3. Extract and properly encode the password
-        if '@' in database_url:
-            # Split into user:pass@host and path parts
-            auth_part, rest = database_url.split('@', 1)
-            if '://' in auth_part:
-                scheme, auth_part = auth_part.split('://', 1)
-            else:
-                scheme = 'postgresql'
-            
-            # Handle user:password format
-            if ':' in auth_part:
-                username, password = auth_part.split(':', 1)
-                # URL encode the password
-                encoded_password = quote_plus(password)
-                # Rebuild the URL with encoded password
-                auth_part = f"{username}:{encoded_password}"
-            
-            # Rebuild the full URL
-            database_url = f"{scheme}://{auth_part}@{rest}"
-            print("Processed and encoded DATABASE_URL credentials")
-        
-        # Parse the URL to handle both direct and pooler connections
-        parsed = urlparse(database_url)
-        username = parsed.username or 'postgres'
-        password = parsed.password or ''
-        
-        # Handle direct Supabase connection (IPv6)
-        if 'db.' in database_url and '.supabase.co' in database_url:
-            # Extract the project ref from the hostname
-            match = re.search(r'db\.([a-zA-Z0-9]+)\.supabase\.co', parsed.hostname or '')
-            if match and password:
-                project_ref = match.group(1)
-                username = f'postgres.{project_ref}'
-                hostname = 'aws-1-eu-central-1.pooler.supabase.com'
-                port = 5432
-                print(f"Converted direct Supabase URL to connection pooler format")
-            else:
-                print("Warning: Could not extract project ref or password from DATABASE_URL")
-                return None
-        # Handle connection pooler URL
-        elif 'pooler.supabase.com' in database_url:
-            hostname = parsed.hostname
-            port = parsed.port or 5432
-        else:
-            print("Warning: Unsupported database URL format")
-            return None
-        
-        # URL encode the password to handle special characters
-        if password:
-            encoded_password = quote_plus(password)
-            # Rebuild the URL with encoded password
-            netloc = f"{username}:{encoded_password}@{hostname}"
-            if port:
-                netloc += f":{port}"
-            database_url = urlunparse(parsed._replace(netloc=netloc, scheme='postgresql'))
-            print("Processed database URL with encoded credentials")
-        
-        # Add sslmode=require if not present
-        if 'sslmode=' not in database_url:
+        # 3. Add sslmode=require if not present
+        if 'sslmode' not in database_url:
             if '?' in database_url:
                 database_url += '&sslmode=require'
             else:
                 database_url += '?sslmode=require'
-                
+            print("Added sslmode=require to DATABASE_URL")
+            
         print("Processed DATABASE_URL:", database_url)
-        
-        # Configure SQLAlchemy with connection pooling and SSL
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-            'pool_pre_ping': True,
-            'pool_recycle': 300,
-            'pool_timeout': 30,
-            'pool_size': 5,
-            'max_overflow': 10,
-            'connect_args': {
-                'connect_timeout': 10,
-                'keepalives': 1,
-                'keepalives_idle': 30,
-                'keepalives_interval': 10,
-                'keepalives_count': 5
-            }
-        }
     else:
-        # Fallback to SQLite if no database URL is provided
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+        # Fallback to SQLite for local development
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
     
+    # Disable track modifications to suppress warning
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # Initialize extensions with app
+    # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'
     
-    # Initialize Flask-Migrate
-    from flask_migrate import Migrate
-    migrate = Migrate()
+    # Configure CORS
+    CORS(app, resources={r"/*": {"origins": "*"}})
     
-    # Set up migrations directory
-    basedir = os.path.abspath(os.path.dirname(__file__))
-    migrations_dir = os.path.join(basedir, '..', 'migrations')
-    
-    # Ensure migrations directory exists
-    os.makedirs(migrations_dir, exist_ok=True)
-    
-    # Initialize Flask-Migrate with the app and db
-    migrate.init_app(app, db, directory=migrations_dir)
-    
-    # Initialize CORS
-    cors.init_app(app)
-    
-    # Import and register blueprints
+    # Register blueprints
     from .auth import auth as auth_blueprint
     from .main import main as main_blueprint
     from .campaigns import campaigns as campaigns_blueprint
@@ -154,14 +68,15 @@ def create_app():
     
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(main_blueprint)
-    app.register_blueprint(campaigns_blueprint)
-    app.register_blueprint(characters_blueprint)
+    app.register_blueprint(campaigns_blueprint, url_prefix='/campaigns')
+    app.register_blueprint(characters_blueprint, url_prefix='/characters')
     
     # Create database tables if they don't exist
     with app.app_context():
-        db.create_all()
-    
-    # Configure login manager
-    login_manager.login_view = 'auth.login'
+        try:
+            db.create_all()
+            print("Database tables created/verified")
+        except Exception as e:
+            print(f"Error creating database tables: {str(e)}")
     
     return app

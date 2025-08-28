@@ -1,7 +1,7 @@
 from functools import wraps
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, login_required, current_user
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 from .models import User, db
 from .extensions import get_supabase
 from datetime import datetime
@@ -86,8 +86,8 @@ def login():
     
     return render_template('login.html')
 
-@auth.route('/register', methods=['GET', 'POST'])
-def register():
+@auth.route('/signup', methods=['GET', 'POST'])
+def signup():
     if current_user.is_authenticated:
         return redirect(url_for('main.home'))
     
@@ -99,15 +99,15 @@ def register():
         # Validate input
         if not all([email, password, confirm_password]):
             flash('Please fill in all required fields.', 'danger')
-            return redirect(url_for('auth.register'))
+            return redirect(url_for('auth.signup'))
             
         if len(password) < 8:
             flash('Password must be at least 8 characters long.', 'danger')
-            return redirect(url_for('auth.register'))
+            return redirect(url_for('auth.signup'))
             
         if password != confirm_password:
             flash('Passwords do not match.', 'danger')
-            return redirect(url_for('auth.register'))
+            return redirect(url_for('auth.signup'))
         
         try:
             supabase = get_supabase()
@@ -130,7 +130,7 @@ def register():
             
             if not response.user:
                 flash('Registration failed. Please try again.', 'danger')
-                return redirect(url_for('auth.register'))
+                return redirect(url_for('auth.signup'))
             
             # Create user in our database
             user = User(
@@ -147,7 +147,7 @@ def register():
         except Exception as e:
             current_app.logger.error(f'Registration error: {str(e)}')
             flash('An error occurred during registration. Please try again.', 'danger')
-            return redirect(url_for('auth.register'))
+            return redirect(url_for('auth.signup'))
     
     return render_template('register.html')
 

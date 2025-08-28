@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from .models import User, Campaign, Character, db
 from .extensions import get_supabase
@@ -9,17 +9,35 @@ import os
 main = Blueprint('main', __name__)
 
 @main.route('/')
-def home():
+def index():
     if current_user.is_authenticated:
-        # Get user's campaigns
-        campaigns = current_user.dm_campaigns + current_user.player_campaigns
-        return render_template('home.html', campaigns=campaigns)
-    return render_template('landing.html')
+        # Get user's campaigns and characters
+        campaigns = Campaign.query.filter_by(user_id=current_user.id).order_by(Campaign.created_at.desc()).limit(3).all()
+        characters = Character.query.filter_by(user_id=current_user.id).order_by(Character.created_at.desc()).limit(3).all()
+        return render_template('index.html', campaigns=campaigns, characters=characters)
+    return render_template('index.html')
 
 @main.route('/profile')
 @login_required
 def profile():
-    return render_template('profile.html')
+    return render_template('profile.html', user=current_user)
+
+@main.route('/dashboard')
+@login_required
+def dashboard():
+    # Get counts for the dashboard
+    campaign_count = Campaign.query.filter_by(user_id=current_user.id).count()
+    character_count = Character.query.filter_by(user_id=current_user.id).count()
+    
+    # Get recent activities
+    recent_campaigns = Campaign.query.filter_by(user_id=current_user.id).order_by(Campaign.created_at.desc()).limit(3).all()
+    recent_characters = Character.query.filter_by(user_id=current_user.id).order_by(Character.created_at.desc()).limit(3).all()
+    
+    return render_template('dashboard.html', 
+                         campaign_count=campaign_count,
+                         character_count=character_count,
+                         recent_campaigns=recent_campaigns,
+                         recent_characters=recent_characters)
 
 @main.route('/profile/update', methods=['POST'])
 @login_required
