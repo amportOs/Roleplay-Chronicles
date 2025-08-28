@@ -1,30 +1,40 @@
 import os
-from login_app import create_app, db
-from flask_migrate import Migrate
 import os
+from login_app import create_app, db
+from flask_migrate import Migrate, upgrade
+
+def initialize_database(app):
+    with app.app_context():
+        try:
+            # Create migrations directory if it doesn't exist
+            migrations_dir = os.path.join(os.path.dirname(__file__), 'migrations')
+            if not os.path.exists(migrations_dir):
+                print("Creating migrations directory...")
+                os.makedirs(migrations_dir)
+            
+            # Initialize Flask-Migrate
+            migrate = Migrate()
+            migrate.init_app(app, db, directory=migrations_dir)
+            
+            # Create tables if they don't exist
+            db.create_all()
+            print("Database tables verified")
+            
+            # Run migrations
+            upgrade(directory=migrations_dir)
+            print("Database migrations completed")
+            
+        except Exception as e:
+            print(f"Database initialization error: {str(e)}")
+            # Don't fail hard in production, but log the error
+            if os.environ.get('FLASK_ENV') == 'development':
+                raise
 
 # Create the Flask application
 app = create_app()
 
-# Initialize Flask-Migrate
-migrate = Migrate(app, db)
-
 # Initialize database and run migrations
-with app.app_context():
-    try:
-        # Create tables if they don't exist
-        db.create_all()
-        print("Database tables verified")
-        
-        # Run migrations if needed
-        from flask_migrate import upgrade
-        upgrade()
-        print("Database migrations completed")
-        
-    except Exception as e:
-        print(f"Database initialization error: {str(e)}")
-        # Re-raise the exception to fail the startup if database connection fails
-        raise
+initialize_database(app)
 
 # This file is used by Gunicorn in production
 # The application factory pattern is used to create the app instance

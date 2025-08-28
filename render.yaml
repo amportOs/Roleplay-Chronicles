@@ -6,7 +6,22 @@ services:
     python:
       version: 3.11.6
     buildCommand: |
+      # Install dependencies
       pip install -r requirements.txt
+      
+      # Create migrations directory if it doesn't exist
+      mkdir -p migrations/versions
+      
+      # Initialize migrations if needed
+      if [ ! -f "migrations/alembic.ini" ]; then
+        echo "Initializing database migrations..."
+        flask db init
+      fi
+      
+      # Generate new migration if models have changed
+      flask db migrate -m "Initial migration"
+      
+      # Apply migrations
       flask db upgrade
     startCommand: gunicorn --worker-tmp-dir /dev/shm --workers 2 --threads 4 --worker-class gthread --timeout 120 "wsgi:app"
     envVars:
