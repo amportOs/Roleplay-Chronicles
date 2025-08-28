@@ -9,9 +9,15 @@ services:
       # Install dependencies
       pip install -r requirements.txt
       
+      # Initialize migrations
+      flask db init
+      flask db migrate -m "Initial migration"
+      
       # Clean up any Python cache
       find . -type d -name "__pycache__" -exec rm -r {} +
-    startCommand: gunicorn --worker-tmp-dir /dev/shm --workers 2 --threads 4 --worker-class gthread --timeout 120 "wsgi:app"
+    startCommand: |
+      flask db upgrade
+      gunicorn --worker-tmp-dir /dev/shm --workers 2 --threads 4 --worker-class gthread --timeout 120 "wsgi:app"
     envVars:
       # Python configuration
       - key: PYTHON_VERSION

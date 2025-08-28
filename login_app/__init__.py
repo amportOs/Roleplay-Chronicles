@@ -55,6 +55,10 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     
+    # Initialize Flask-Migrate
+    from .extensions import migrate
+    migrate.init_app(app, db)
+    
     # Configure CORS
     CORS(app, resources={r"/*": {"origins": "*"}})
     
