@@ -4,7 +4,8 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_cors import CORS
 import os
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs, urlunparse
+import re
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -30,8 +31,7 @@ def create_app():
         # Check if this is a direct Supabase connection (IPv6) and convert to connection pooler
         if 'db.' in database_url and '.supabase.co' in database_url:
             # Extract the project ref and password from the original URL
-            import re
-            from urllib.parse import urlparse, parse_qs, urlunparse
+            # Import already at top of file
             
             # Parse the original URL to get the password
             parsed = urlparse(database_url)
