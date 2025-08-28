@@ -1,9 +1,10 @@
 from flask import Flask
-from .extensions import db, login_manager, migrate, cors, get_supabase
-from .models import User, init_db
+from .extensions import db, login_manager, cors, get_supabase
+from .models import User
 from .auth import auth as auth_blueprint
 from .main import main as main_blueprint
-from .storage import allowed_file, upload_file, delete_file
+from .characters import characters as characters_blueprint
+from .campaigns import campaigns as campaigns_blueprint
 import os
 from datetime import timedelta
 
@@ -26,7 +27,6 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
-    migrate.init_app(app, db)
     cors.init_app(app)
     
     # Configure login manager

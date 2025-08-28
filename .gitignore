@@ -41,3 +41,12 @@ instance/
 
 # Uploads directory
 login_app/static/uploads/
+
+# Migration directories
+migrations/
+supabase/migrations/
+
+# Byte-compiled / optimized / DLL files
+*.py[cod]
+*$py.class
+*.so
