@@ -19,8 +19,8 @@ def create_app():
     # Load configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-123')
     
-    # Get database URL from environment variable
-    database_url = os.environ.get('DATABASE_URL')
+    # Get database URL from environment variable, fall back to SQLALCHEMY_DATABASE_URI
+    database_url = os.environ.get('DATABASE_URL') or os.environ.get('SQLALCHEMY_DATABASE_URI')
     
     if database_url:
         print("Original DATABASE_URL:", database_url)
@@ -56,23 +56,25 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
+    migrate.init_app(app, db)
     
     # Configure CORS
     CORS(app, resources={r"/*": {"origins": "*"}})
     
-    # Register blueprints
+    # Import and register blueprints
     from .auth import auth as auth_blueprint
     from .main import main as main_blueprint
-    from .campaigns import campaigns as campaigns_blueprint
     from .characters import characters as characters_blueprint
+    from .campaigns import campaigns as campaigns_blueprint
     
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(main_blueprint)
-    app.register_blueprint(campaigns_blueprint, url_prefix='/campaigns')
     app.register_blueprint(characters_blueprint, url_prefix='/characters')
+    app.register_blueprint(campaigns_blueprint, url_prefix='/campaigns')
     
-    # Create database tables if they don't exist
-    with app.app_context():
+    # Initialize database and run migrations
+    @app.before_first_request
+    def initialize_database():
         try:
             db.create_all()
             print("Database tables created/verified")

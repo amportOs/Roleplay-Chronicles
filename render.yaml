@@ -7,39 +7,38 @@ services:
       version: 3.11.6
     buildCommand: |
       pip install -r requirements.txt
-    startCommand: gunicorn "wsgi:app"
+      flask db upgrade
+    startCommand: gunicorn --worker-tmp-dir /dev/shm --workers 2 --threads 4 --worker-class gthread --timeout 120 "wsgi:app"
     envVars:
       # Python configuration
       - key: PYTHON_VERSION
         value: 3.11.6
       - key: PYTHONUNBUFFERED
-        value: true
+        value: "true"
       - key: PYTHONHASHSEED
         value: random
       
       # Flask configuration
       - key: FLASK_APP
-        value: run.py
+        value: wsgi.py
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
         generateValue: true
       
-      # Supabase configuration - these should be set in your Render dashboard
+      # Supabase configuration - set these in Render dashboard
       - key: SUPABASE_URL
-        sync: false  # This means you'll need to set it manually in the dashboard
+        sync: false
       - key: SUPABASE_KEY
-        sync: false  # This means you'll need to set it manually in the dashboard
+        sync: false
       - key: SUPABASE_DB_URL
-        sync: false  # This means you'll need to set it manually in the dashboard
+        sync: false
       
       # Database configuration
       - key: DATABASE_URL
-        sync: false  # This means you'll need to set it manually in the dashboard
-      
-      # SQLAlchemy configuration
+        sync: false
       - key: SQLALCHEMY_DATABASE_URI
-        sync: false  # This means you'll need to set it manually in the dashboard
+        sync: false
       - key: SQLALCHEMY_TRACK_MODIFICATIONS
         value: "false"
       
@@ -48,6 +47,10 @@ services:
         value: require
       - key: PGSSLROOTCERT
         value: /etc/ssl/certs/ca-certificates.crt
+      
+      # Gunicorn configuration
+      - key: GUNICORN_CMD_ARGS
+        value: "--worker-tmp-dir /dev/shm --workers 2 --threads 4 --worker-class gthread --timeout 120"
       
       # Connection pooling
       - key: SQLALCHEMY_POOL_SIZE
