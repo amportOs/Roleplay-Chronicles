@@ -21,11 +21,11 @@ def create_app():
     database_url = os.environ.get('DATABASE_URL')
     
     if database_url:
-        # Parse the database URL to handle special characters in password
+        # Ensure the URL starts with postgresql://
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
         
-        # Configure SQLAlchemy to use the database URL with SSL
+        # Configure SQLAlchemy with connection pooling and SSL
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
