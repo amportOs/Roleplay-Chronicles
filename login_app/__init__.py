@@ -21,26 +21,41 @@ def create_app():
     database_url = os.environ.get('DATABASE_URL')
     
     if database_url:
-        # Parse the database URL to extract components
-        from urllib.parse import urlparse, parse_qs, urlunparse
-        
-        # Parse the database URL
-        parsed = urlparse(database_url)
+        print("Original DATABASE_URL:", database_url)
         
         # Ensure the scheme is postgresql://
-        if parsed.scheme == 'postgres':
-            parsed = parsed._replace(scheme='postgresql')
+        if database_url.startswith('postgres://'):
+            database_url = database_url.replace('postgres://', 'postgresql://', 1)
         
-        # Parse query parameters
-        query_params = parse_qs(parsed.query)
+        # Handle the case where the URL has an IPv6 address in it
+        if '[' in database_url and ']' in database_url:
+            # This is an IPv6 address, we need to handle it specially
+            import re
+            # Extract the IPv6 part
+            ipv6_match = re.search(r'\[([0-9a-fA-F:]+)\]', database_url)
+            if ipv6_match:
+                ipv6 = ipv6_match.group(1)
+                # Replace the IPv6 with a placeholder for parsing
+                temp_url = database_url.replace(f'[{ipv6}]', 'ipv6_placeholder')
+                
+                # Parse the URL with the placeholder
+                from urllib.parse import urlparse, parse_qs, urlunparse
+                parsed = urlparse(temp_url)
+                
+                # Rebuild the URL with the original IPv6
+                netloc = parsed.netloc.replace('ipv6_placeholder', f'[{ipv6}]')
+                
+                # Reconstruct the URL
+                database_url = urlunparse(parsed._replace(netloc=netloc))
         
-        # Add SSL parameters if not present
-        if 'sslmode' not in query_params:
-            query_params['sslmode'] = ['require']
-        
-        # Rebuild the URL with updated parameters
-        updated_query = '&'.join(f"{k}={v[0]}" for k, v in query_params.items())
-        database_url = urlunparse(parsed._replace(query=updated_query))
+        # Add sslmode=require if not present
+        if 'sslmode=' not in database_url:
+            if '?' in database_url:
+                database_url += '&sslmode=require'
+            else:
+                database_url += '?sslmode=require'
+                
+        print("Processed DATABASE_URL:", database_url)
         
         # Configure SQLAlchemy with connection pooling and SSL
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
