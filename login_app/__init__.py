@@ -72,10 +72,8 @@ def create_app():
     app.register_blueprint(characters_blueprint, url_prefix='/characters')
     app.register_blueprint(campaigns_blueprint, url_prefix='/campaigns')
     
-    # Database initialization is now handled in wsgi.py
-    # This ensures it only happens once during app startup
-    @app.before_first_request
-    def initialize_database():
+    # Database initialization
+    with app.app_context():
         try:
             db.create_all()
             print("Database tables created/verified")

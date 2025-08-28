@@ -11,18 +11,9 @@ services:
       
       # Create migrations directory if it doesn't exist
       mkdir -p migrations/versions
+      chmod -R 777 migrations
       
-      # Initialize migrations if needed
-      if [ ! -f "migrations/alembic.ini" ]; then
-        echo "Initializing database migrations..."
-        flask db init
-      fi
-      
-      # Generate new migration if models have changed
-      flask db migrate -m "Initial migration"
-      
-      # Apply migrations
-      flask db upgrade
+      # Initialize database tables (handled in create_app)
     startCommand: gunicorn --worker-tmp-dir /dev/shm --workers 2 --threads 4 --worker-class gthread --timeout 120 "wsgi:app"
     envVars:
       # Python configuration
