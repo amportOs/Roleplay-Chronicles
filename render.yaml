@@ -7,33 +7,55 @@ services:
       version: 3.11.6
     buildCommand: |
       pip install -r requirements.txt
-      python init_db.py
+      python test_db.py && python init_db.py
     startCommand: gunicorn "wsgi:app"
     envVars:
+      # Python configuration
       - key: PYTHON_VERSION
         value: 3.11.6
       - key: PYTHONUNBUFFERED
         value: true
       - key: PYTHONHASHSEED
         value: random
+      
+      # Flask configuration
       - key: FLASK_APP
         value: run.py
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
         generateValue: true
+      
+      # Supabase configuration - these should be set in your Render dashboard
       - key: SUPABASE_URL
-        fromService:
-          name: roleplay-chronicles
-          type: web
-          property: env.SUPABASE_URL
+        sync: false  # This means you'll need to set it manually in the dashboard
       - key: SUPABASE_KEY
-        fromService:
-          name: roleplay-chronicles
-          type: web
-          property: env.SUPABASE_KEY
+        sync: false  # This means you'll need to set it manually in the dashboard
+      - key: SUPABASE_DB_URL
+        sync: false  # This means you'll need to set it manually in the dashboard
+      
+      # Database configuration
       - key: DATABASE_URL
-        fromService:
-          name: roleplay-chronicles
-          type: web
-          property: env.DATABASE_URL
+        sync: false  # This means you'll need to set it manually in the dashboard
+      
+      # SQLAlchemy configuration
+      - key: SQLALCHEMY_DATABASE_URI
+        sync: false  # This means you'll need to set it manually in the dashboard
+      - key: SQLALCHEMY_TRACK_MODIFICATIONS
+        value: "false"
+      
+      # SSL configuration
+      - key: PGSSLMODE
+        value: require
+      - key: PGSSLROOTCERT
+        value: /etc/ssl/certs/ca-certificates.crt
+      
+      # Connection pooling
+      - key: SQLALCHEMY_POOL_SIZE
+        value: "5"
+      - key: SQLALCHEMY_MAX_OVERFLOW
+        value: "10"
+      - key: SQLALCHEMY_POOL_TIMEOUT
+        value: "30"
+      - key: SQLALCHEMY_POOL_RECYCLE
+        value: "300"

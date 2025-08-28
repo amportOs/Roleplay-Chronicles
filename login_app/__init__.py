@@ -21,18 +21,41 @@ def create_app():
     database_url = os.environ.get('DATABASE_URL')
     
     if database_url:
-        # Ensure the URL starts with postgresql://
-        if database_url.startswith('postgres://'):
-            database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        # Parse the database URL to extract components
+        from urllib.parse import urlparse, parse_qs, urlunparse
+        
+        # Parse the database URL
+        parsed = urlparse(database_url)
+        
+        # Ensure the scheme is postgresql://
+        if parsed.scheme == 'postgres':
+            parsed = parsed._replace(scheme='postgresql')
+        
+        # Parse query parameters
+        query_params = parse_qs(parsed.query)
+        
+        # Add SSL parameters if not present
+        if 'sslmode' not in query_params:
+            query_params['sslmode'] = ['require']
+        
+        # Rebuild the URL with updated parameters
+        updated_query = '&'.join(f"{k}={v[0]}" for k, v in query_params.items())
+        database_url = urlunparse(parsed._replace(query=updated_query))
         
         # Configure SQLAlchemy with connection pooling and SSL
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
+            'pool_timeout': 30,
+            'pool_size': 5,
+            'max_overflow': 10,
             'connect_args': {
-                'sslmode': 'require',
-                'options': "-c search_path=public"
+                'connect_timeout': 10,
+                'keepalives': 1,
+                'keepalives_idle': 30,
+                'keepalives_interval': 10,
+                'keepalives_count': 5
             }
         }
     else:
