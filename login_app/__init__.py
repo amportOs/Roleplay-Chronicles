@@ -4,6 +4,7 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_cors import CORS
 import os
+from urllib.parse import urlparse
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -15,7 +16,29 @@ def create_app():
     
     # Load configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-123')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///site.db')
+    
+    # Get database URL from environment variable
+    database_url = os.environ.get('DATABASE_URL')
+    
+    if database_url:
+        # Parse the database URL to handle special characters in password
+        if database_url.startswith('postgres://'):
+            database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        
+        # Configure SQLAlchemy to use the database URL with SSL
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,
+            'pool_recycle': 300,
+            'connect_args': {
+                'sslmode': 'require',
+                'options': "-c search_path=public"
+            }
+        }
+    else:
+        # Fallback to SQLite if no database URL is provided
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+    
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # Initialize extensions
