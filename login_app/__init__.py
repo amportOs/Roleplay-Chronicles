@@ -129,12 +129,20 @@ def create_app():
     # Initialize extensions with app
     db.init_app(app)
     login_manager.init_app(app)
-    # Initialize migrate with both app and db
+    
+    # Ensure the migrations directory exists
+    migrations_dir = os.path.join(app.root_path, '..', 'migrations')
+    os.makedirs(migrations_dir, exist_ok=True)
+    
+    # Initialize migrate with both app and db, specifying the directory
     global migrate
-    migrate = Migrate(app, db)
+    migrate = Migrate()
+    migrate.init_app(app, db, directory=migrations_dir)
+    
+    # Initialize CORS
     cors.init_app(app)
     
-    # Create tables if they don't exist
+    # Create all database tables
     with app.app_context():
         db.create_all()
     
