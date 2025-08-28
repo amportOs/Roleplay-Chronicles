@@ -130,11 +130,14 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     
+    # Set up migrations directory in the project root
+    basedir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    migrations_dir = os.path.join(basedir, 'migrations')
+    
     # Ensure the migrations directory exists
-    migrations_dir = os.path.join(app.root_path, '..', 'migrations')
     os.makedirs(migrations_dir, exist_ok=True)
     
-    # Initialize migrate with both app and db, specifying the directory
+    # Initialize Flask-Migrate
     global migrate
     migrate = Migrate()
     migrate.init_app(app, db, directory=migrations_dir)
