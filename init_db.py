@@ -8,11 +8,17 @@ from urllib.parse import urlparse
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 # Now import the app and db
-from login_app import create_app, db, migrate
+from login_app import create_app, db
 
 # Create the Flask application
 app = create_app()
-app.app_context().push()  # Create application context
+
+# Push application context
+app.app_context().push()
+
+# Import migrate here to avoid circular imports
+from flask_migrate import Migrate
+migrate = Migrate(app, db)
 
 def wait_for_db(max_retries=5, delay=5):
     """Wait for the database to become available."""
@@ -44,29 +50,22 @@ def init_db():
         sys.exit(1)
     
     try:
-        # Initialize migrations if they don't exist
-        migrations_dir = os.path.join(os.path.dirname(__file__), 'migrations')
-        if not os.path.exists(migrations_dir):
-            print("Initializing migrations...")
-            os.makedirs(migrations_dir, exist_ok=True)
-            from flask_migrate import init as migrate_init
-            migrate_init()
+        # Create tables if they don't exist
+        print("Creating database tables...")
+        db.create_all()
         
-        # Create or upgrade database
-        print("Creating/updating database tables...")
-        with app.app_context():
-            db.create_all()
-            
-            # Only create test data if the database is empty
-            from login_app.models import User
-            if not User.query.first():
-                print("Creating test data...")
-                create_test_data()
-            
-            print("Database initialized successfully!")
-            
+        # Only create test data if the database is empty
+        from login_app.models import User
+        if not User.query.first():
+            print("Creating test data...")
+            create_test_data()
+        
+        print("Database initialized successfully!")
+        
     except Exception as e:
         print(f"Error initializing database: {str(e)}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 def create_test_data():

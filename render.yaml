@@ -7,11 +7,22 @@ services:
       version: 3.11.6
     buildCommand: |
       pip install -r requirements.txt
-      # Create migrations directory if it doesn't exist
-      mkdir -p migrations
-      # Initialize database and run migrations
+      # Create and initialize migrations directory
+      export FLASK_APP=run.py
+      # Create migrations directory and initialize if it doesn't exist
+      if [ ! -d "migrations" ]; then
+        echo "Initializing migrations directory..."
+        flask db init
+      fi
+      # Run database setup
+      echo "Running database setup..."
       python init_db.py
+      # Create and apply migrations
+      echo "Creating and applying migrations..."
+      flask db migrate -m "Initial migration"
+      flask db upgrade
       # Run database tests
+      echo "Running database tests..."
       python test_db.py
     startCommand: gunicorn "wsgi:app"
     envVars:
